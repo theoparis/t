@@ -1,0 +1,48 @@
+load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
+load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
+load(":cxx.bzl", "gravity_cxx_toolchain", "gravity_cxx_tools")
+
+system_genrule_toolchain(
+    name = "genrule",
+    visibility = ["PUBLIC"],
+)
+
+system_python_bootstrap_toolchain(
+    name = "python_bootstrap",
+    visibility = ["PUBLIC"],
+)
+
+system_rust_toolchain(
+    name = "rust",
+    visibility = ["PUBLIC"],
+    default_edition = "2024",
+    rustc_target_triple = select({
+        "prelude//cpu/constraints:arm64": select({
+            "DEFAULT": None,
+            "prelude//os/constraints:none": "aarch64-unknown-none-softfloat",
+        }),
+        "DEFAULT": None,
+    }),
+    rustc_flags = [
+        "-Cpanic=abort",
+        "-Crelocation-model=pic",
+    ] + select({
+        "DEFAULT": ["-Cdebuginfo=line-tables-only", "-Copt-level=3"],
+        "root//:release": ["-Cdebuginfo=none", "-Copt-level=3", "-Coverflow-checks=off", "-Zdylib-lto", "-Clto=thin"],
+    }),
+)
+
+gravity_cxx_tools(
+    name = "cxx_tools",
+    visibility = ["PUBLIC"],
+)
+
+gravity_cxx_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
+    _cxx_tools_info = ":cxx_tools",
+    linker_executable = select({
+        "DEFAULT": None,
+    }),
+)

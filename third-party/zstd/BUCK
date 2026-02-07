@@ -1,0 +1,78 @@
+zstd_common_sources = [
+    "lib/common/debug.c",
+    "lib/common/entropy_common.c",
+    "lib/common/error_private.c",
+    "lib/common/fse_decompress.c",
+    "lib/common/pool.c",
+    "lib/common/threading.c",
+    "lib/common/xxhash.c",
+    "lib/common/zstd_common.c",
+]
+
+zstd_decompress_sources = [
+    "lib/decompress/huf_decompress.c",
+    "lib/decompress/zstd_ddict.c",
+    "lib/decompress/zstd_decompress.c",
+    "lib/decompress/zstd_decompress_block.c",
+]
+
+zstd_sources = zstd_common_sources + zstd_decompress_sources
+
+zstd_common_headers = [
+    "lib/common/bitstream.h",
+    "lib/common/compiler.h",
+    "lib/common/cpu.h",
+    "lib/common/debug.h",
+    "lib/common/error_private.h",
+    "lib/common/fse.h",
+    "lib/common/huf.h",
+    "lib/common/mem.h",
+    "lib/common/pool.h",
+    "lib/common/portability_macros.h",
+    "lib/common/threading.h",
+    "lib/common/xxhash.h",
+    "lib/common/zstd_deps.h",
+    "lib/common/zstd_internal.h",
+]
+
+zstd_decompress_headers = [
+    "lib/decompress/zstd_ddict.h",
+    "lib/decompress/zstd_decompress_block.h",
+    "lib/decompress/zstd_decompress_internal.h",
+]
+
+zstd_exported_headers = [
+    "lib/zstd.h",
+    "lib/zstd_errors.h",
+]
+
+zstd_headers = zstd_common_headers + zstd_decompress_headers + zstd_exported_headers
+
+http_archive(
+    name = "src",
+    sha256 = "37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3",
+    strip_prefix = "zstd-1.5.7",
+    urls = ["https://github.com/facebook/zstd/archive/refs/tags/v1.5.7.tar.gz"],
+    sub_targets = zstd_sources + zstd_headers,
+    visibility = ["third-party//zstd/..."],
+)
+
+src_ref = lambda x: ":src[{}]".format(x)
+
+cxx_library(
+    name = "zstd",
+    srcs = [src_ref(f) for f in zstd_sources],
+    headers = [src_ref(f) for f in zstd_common_headers + zstd_decompress_headers],
+    exported_headers = {
+        "zstd.h": src_ref("lib/zstd.h"),
+        "zstd_errors.h": src_ref("lib/zstd_errors.h"),
+    },
+    header_namespace = "",
+    compiler_flags = [
+        "-DZSTD_MULTITHREAD",
+        "-Ithird-party//zstd:src[lib/common]",
+        "-Ithird-party//zstd:src[lib/decompress]",
+    ],
+    preferred_linkage = "static",
+    visibility = ["PUBLIC"],
+)

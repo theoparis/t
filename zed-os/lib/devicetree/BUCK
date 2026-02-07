@@ -1,0 +1,16 @@
+rust_library(
+    name = "devicetree",
+    srcs = [
+        "img3.rs",
+        "lib.rs",
+        "decryptor.rs",
+    ],
+    deps = [
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:aes",
+        "third-party//rust:cbc",
+        "third-party//rust:hex",
+    ],
+    visibility = ["PUBLIC"],
+)

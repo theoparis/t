@@ -1,0 +1,12 @@
+[package]
+name = "dyld"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+linked_list_allocator = { workspace = true }
+goblin = { workspace = true }
+loader = { path = "../loader" }
+
+[lints]
+workspace = true

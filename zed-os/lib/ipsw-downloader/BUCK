@@ -1,0 +1,13 @@
+rust_library(
+    name = "ipsw-downloader",
+    srcs = ["lib.rs"],
+    deps = [
+        "third-party//rust:reqwest",
+        "third-party//rust:plist",
+        "third-party//rust:serde",
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:tokio",
+    ],
+    visibility = ["PUBLIC"],
+)

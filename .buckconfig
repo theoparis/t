@@ -1,0 +1,54 @@
+[cells]
+  root = .
+  prelude = prelude
+  toolchains = toolchains
+  third-party = third-party
+  none = none
+
+[cell_aliases]
+  config = prelude
+  ovr_config = prelude
+  fbcode = none
+  fbsource = none
+  fbcode_macros = none
+  buck = none
+
+[external_cells]
+  prelude = bundled
+
+[parser]
+  target_platform_detector_spec = target:root//...->prelude//platforms:default \
+    target:prelude//...->prelude//platforms:default \
+    target:toolchains//...->prelude//platforms:default
+
+[build]
+  execution_platforms = prelude//platforms:default
+
+[buck2]
+file_watcher = watchman
+test_builds_targets = true
+digest_algorithms = SHA256
+log_total_configured_graph_sketch = true
+log_total_configured_graph_unconfigured_sketch = true
+log_configured_graph_unconfigured_sketch = true
+defer_write_actions = true
+restarter = true
+check_starlark_peak_memory = true
+starlark_max_callstack_size = 50
+
+default_starlark_peak_memory = 5242880
+
+[buck2_resource_control]
+status = if_available
+enable_suspension = true
+
+[project]
+# things that should not be scanned by buck2 for file changes. if you notice
+# something strange is being scanned, it might be worth adding here.
+ignore = \
+  .jj, \
+  .git, \
+  .direnv, \
+  .watchman-cookie**, \
+  .gdb_history**, \
+  **.bck

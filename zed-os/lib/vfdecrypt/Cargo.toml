@@ -1,0 +1,22 @@
+[package]
+name = "vfdecrypt"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+derive_more = { workspace = true }
+rootcause = { workspace = true }
+aes = { workspace = true }
+hmac = { workspace = true }
+sha1 = { workspace = true }
+pbkdf2 = { workspace = true }
+des = { workspace = true }
+cbc = { workspace = true, features = ["alloc"] }
+cipher = { workspace = true, features = ["block-padding"] }
+rayon = { workspace = true }
+
+[lints]
+workspace = true

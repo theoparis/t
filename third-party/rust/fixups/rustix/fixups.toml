@@ -1,0 +1,2 @@
+buildscript.run = true
+# extra_deps = ["third-party//rust:libc", "third-party//rust:libc_errno"]

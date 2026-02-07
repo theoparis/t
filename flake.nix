@@ -13,43 +13,29 @@
         "x86_64-linux"
         "aarch64-linux"
         "riscv64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
       ];
     in
     {
       devShells = eachSystem (
-        system:
-        with (import nixpkgs {
-          inherit system;
-          overlays = [
-            (final: previous: {
-              python3 = previous.python3.override {
-                packageOverrides = pyfinal: pyprev: {
-                  torch = previous.python3Packages.torchWithRocm;
-                };
-              };
-            })
-          ];
-        }); {
+        system: with nixpkgs.legacyPackages.${system}; {
           default = mkShell rec {
             nativeBuildInputs = [
               pyrefly
               rustup
+              buck2
+              reindeer
               pkg-config
               nixfmt
               nil
               ruff
-              (python3.withPackages (
-                pythonPkgs: with pythonPkgs; [
-                  transformers
-                  sentencepiece
-                  protobuf
-                  trl
-                ]
-              ))
+              watchman
+              jujutsu
+              gitMinimal
             ];
 
             buildInputs = [
-              rocmPackages.clr
             ];
 
             LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;

@@ -1,0 +1,17 @@
+rust_library(
+    name = "vfdecrypt",
+    srcs = ["lib.rs"],
+    deps = [
+        "third-party//rust:aes",
+        "third-party//rust:hmac",
+        "third-party//rust:sha1",
+        "third-party//rust:pbkdf2",
+        "third-party//rust:des",
+        "third-party//rust:cbc",
+        "third-party//rust:cipher",
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:rayon",
+    ],
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,23 @@
+rust_binary(
+    name = "ios-emulator",
+    srcs = [
+        "cpu.rs",
+        "decoder.rs",
+        "explorer.rs",
+        "hardware.rs",
+        "jit.rs",
+        "main.rs",
+    ],
+    deps = [
+        "//zed-os/lib/devicetree:devicetree",
+        "//zed-os/lib/ipsw-downloader:ipsw-downloader",
+        "third-party//rust:cranelift",
+        "third-party//rust:rasn",
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:aes",
+        "third-party//rust:cbc",
+        "third-party//rust:hex",
+    ],
+    visibility = ["PUBLIC"],
+)

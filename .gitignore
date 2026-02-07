@@ -8,3 +8,7 @@ wheels/
 .ruff_cache/
 # Virtual environments
 .venv
+target/
+/buck-out
+rust-project.json
+compile_commands.json

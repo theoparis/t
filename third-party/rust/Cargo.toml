@@ -1,0 +1,105 @@
+[package]
+name = "rust-third-party"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "dummy"
+path = "dummy.rs"
+
+[dependencies]
+rootcause = { version = "0.12.0", default-features = false }
+derive_more = { version = "2.1.1", default-features = false, features = [
+    "display",
+    "error",
+    "from",
+] }
+reqwest = { version = "0.13.2", default-features = false, features = [
+    "rustls-no-provider",
+    "stream",
+    "http2",
+] }
+rustls-graviola = { git = "https://github.com/ctz/graviola" }
+graviola = { git = "https://github.com/ctz/graviola" }
+goblin = { version = "0.10.4", default-features = false, features = [
+    "endian_fd",
+    "alloc",
+    "mach32",
+    "mach64",
+    "elf32",
+    "elf64",
+] }
+linked_list_allocator = "0.10.5"
+spin = "0.10.0"
+plist = { version = "1.8.0", default-features = false, features = ["serde"] }
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+tokio = { version = "1.49.0", default-features = false, features = [
+    "rt-multi-thread",
+    "macros",
+] }
+clap = { version = "4.5.57", features = [
+    "derive",
+    "std",
+    "help",
+], default-features = false }
+aes = "0.8.4"
+hmac = "0.12.1"
+sha1 = "0.10.6"
+pbkdf2 = "0.12.2"
+des = "0.8.1"
+cbc = { version = "0.1.2", features = ["alloc"] }
+hex = "0.4.3"
+cipher = { version = "0.5.0", features = ["block-padding"] }
+indicatif = "0.18.3"
+byteorder = "1.5"
+bitflags = { version = "2.10.0", default-features = false }
+libc = { version = "0.2.180", default-features = false }
+xattr = "1.6.1"
+rustix = { version = "1.1.3", default-features = false, features = [
+    "fs",
+    "std",
+] }
+errno = { version = "0.3.14", default-features = false }
+zip = "=7.3.0-pre1"
+rayon = "1.11"
+futures-util = "0.3"
+unicode-normalization = { version = "0.1", default-features = false }
+fatfs = "0.3"
+fscommon = "0.1"
+md5 = "0.8"
+serde_bytes = "0.11"
+getrandom = "0.4"
+flate2 = "1.1"
+crc32fast = "1.5"
+hashbrown = "0.16"
+memmap2 = "0.9"
+binrw = { version = "0.15.0", default-features = false }
+zlib-rs = { version = "0.6.0", default-features = false, features = [
+    "__internal-api",
+] }
+rand_core = { version = "0.10.0", default-features = false }
+rand_chacha = { version = "0.10.0", default-features = false }
+lzma-rust2 = { version = "=0.15.7", default-features = false }
+ruzstd = { version = "0.8.2", default-features = false }
+rmcp = { version = "0.14.0", features = ["transport-io"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+rasn = "0.28.7"
+cranelift = { version = "0.128.3", features = ["jit", "module", "native"] }
+wgpu = { version = "28.0.0", default-features = false, features = [
+    "wgsl",
+    "vulkan",
+] }
+winit = { version = "0.31.0-beta.2", default-features = false, features = [
+    "x11",
+] }
+pollster = "0.4.0"
+bytemuck = { version = "1.25.0", default-features = false, features = [
+    "derive",
+] }
+image = { version = "0.25.9", default-features = false, features = ["png"] }
+glam = { version = "0.31.0", default-features = false, features = [
+    "std",
+    "bytemuck",
+    "fast-math",
+] }

@@ -12,3 +12,5 @@ target/
 /buck-out
 rust-project.json
 compile_commands.json
+/build_log*.txt
+*.log*

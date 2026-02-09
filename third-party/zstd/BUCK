@@ -16,9 +16,28 @@ zstd_decompress_sources = [
     "lib/decompress/zstd_decompress_block.c",
 ]
 
-zstd_sources = zstd_common_sources + zstd_decompress_sources
+zstd_compress_sources = [
+    "lib/compress/fse_compress.c",
+    "lib/compress/hist.c",
+    "lib/compress/huf_compress.c",
+    "lib/compress/zstd_compress.c",
+    "lib/compress/zstd_compress_literals.c",
+    "lib/compress/zstd_compress_sequences.c",
+    "lib/compress/zstd_compress_superblock.c",
+    "lib/compress/zstd_double_fast.c",
+    "lib/compress/zstd_fast.c",
+    "lib/compress/zstd_lazy.c",
+    "lib/compress/zstd_ldm.c",
+    "lib/compress/zstd_opt.c",
+    "lib/compress/zstdmt_compress.c",
+    "lib/compress/zstd_preSplit.c",
+]
+
+zstd_sources = zstd_common_sources + zstd_decompress_sources + zstd_compress_sources
 
 zstd_common_headers = [
+    "lib/common/allocations.h",
+    "lib/common/bits.h",
     "lib/common/bitstream.h",
     "lib/common/compiler.h",
     "lib/common/cpu.h",
@@ -33,6 +52,7 @@ zstd_common_headers = [
     "lib/common/xxhash.h",
     "lib/common/zstd_deps.h",
     "lib/common/zstd_internal.h",
+    "lib/common/zstd_trace.h",
 ]
 
 zstd_decompress_headers = [
@@ -41,12 +61,34 @@ zstd_decompress_headers = [
     "lib/decompress/zstd_decompress_internal.h",
 ]
 
+zstd_compress_headers = [
+    "lib/compress/clevels.h",
+    "lib/compress/hist.h",
+    "lib/compress/zstd_compress_internal.h",
+    "lib/compress/zstd_compress_literals.h",
+    "lib/compress/zstd_compress_sequences.h",
+    "lib/compress/zstd_compress_superblock.h",
+    "lib/compress/zstd_cwksp.h",
+    "lib/compress/zstd_double_fast.h",
+    "lib/compress/zstd_fast.h",
+    "lib/compress/zstd_lazy.h",
+    "lib/compress/zstd_ldm.h",
+    "lib/compress/zstd_opt.h",
+    "lib/compress/zstdmt_compress.h",
+    "lib/compress/zstd_preSplit.h",
+]
+
 zstd_exported_headers = [
     "lib/zstd.h",
     "lib/zstd_errors.h",
 ]
 
-zstd_headers = zstd_common_headers + zstd_decompress_headers + zstd_exported_headers
+zstd_headers = (
+    zstd_common_headers +
+    zstd_decompress_headers +
+    zstd_compress_headers +
+    zstd_exported_headers
+)
 
 http_archive(
     name = "src",
@@ -62,7 +104,7 @@ src_ref = lambda x: ":src[{}]".format(x)
 cxx_library(
     name = "zstd",
     srcs = [src_ref(f) for f in zstd_sources],
-    headers = [src_ref(f) for f in zstd_common_headers + zstd_decompress_headers],
+    headers = [src_ref(f) for f in zstd_common_headers + zstd_decompress_headers + zstd_compress_headers],
     exported_headers = {
         "zstd.h": src_ref("lib/zstd.h"),
         "zstd_errors.h": src_ref("lib/zstd_errors.h"),
@@ -70,8 +112,10 @@ cxx_library(
     header_namespace = "",
     compiler_flags = [
         "-DZSTD_MULTITHREAD",
+        "-DZSTD_DISABLE_ASM",
         "-Ithird-party//zstd:src[lib/common]",
         "-Ithird-party//zstd:src[lib/decompress]",
+        "-Ithird-party//zstd:src[lib/compress]",
     ],
     preferred_linkage = "static",
     visibility = ["PUBLIC"],

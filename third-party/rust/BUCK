@@ -673,25 +673,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "bzip2-0.6.1.crate",
-    sha256 = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c",
-    strip_prefix = "bzip2-0.6.1",
-    urls = ["https://static.crates.io/crates/bzip2/0.6.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "bzip2-0.6.1",
-    srcs = [":bzip2-0.6.1.crate"],
-    crate = "bzip2",
-    crate_root = "bzip2-0.6.1.crate/src/lib.rs",
-    edition = "2021",
-    features = ["default"],
-    visibility = [],
-    deps = [":libbz2-rs-sys-0.2.2"],
-)
-
-http_archive(
     name = "calloop-0.14.3.crate",
     sha256 = "cb9f6e1368bd4621d2c86baa7e37de77a938adf5221e5dd3d6133340101b309e",
     strip_prefix = "calloop-0.14.3",
@@ -1044,23 +1025,6 @@ cargo.rust_library(
         ":once_cell-1.21.3",
         ":unicode-width-0.2.2",
     ],
-)
-
-http_archive(
-    name = "constant_time_eq-0.3.1.crate",
-    sha256 = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6",
-    strip_prefix = "constant_time_eq-0.3.1",
-    urls = ["https://static.crates.io/crates/constant_time_eq/0.3.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "constant_time_eq-0.3.1",
-    srcs = [":constant_time_eq-0.3.1.crate"],
-    crate = "constant_time_eq",
-    crate_root = "constant_time_eq-0.3.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
 )
 
 http_archive(
@@ -1702,41 +1666,6 @@ cargo.rust_library(
     visibility = [],
 )
 
-http_archive(
-    name = "crc-3.3.0.crate",
-    sha256 = "9710d3b3739c2e349eb44fe848ad0b7c8cb1e42bd87ee49371df2f7acaf3e675",
-    strip_prefix = "crc-3.3.0",
-    urls = ["https://static.crates.io/crates/crc/3.3.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "crc-3.3.0",
-    srcs = [":crc-3.3.0.crate"],
-    crate = "crc",
-    crate_root = "crc-3.3.0.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":crc-catalog-2.4.0"],
-)
-
-http_archive(
-    name = "crc-catalog-2.4.0.crate",
-    sha256 = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5",
-    strip_prefix = "crc-catalog-2.4.0",
-    urls = ["https://static.crates.io/crates/crc-catalog/2.4.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "crc-catalog-2.4.0",
-    srcs = [":crc-catalog-2.4.0.crate"],
-    crate = "crc_catalog",
-    crate_root = "crc-catalog-2.4.0.crate/src/lib.rs",
-    edition = "2018",
-    visibility = [],
-)
-
 alias(
     name = "crc32fast",
     actual = ":crc32fast-1.5.0",
@@ -1969,23 +1898,6 @@ cargo.rust_library(
         ":quote-1.0.44",
         ":syn-2.0.114",
     ],
-)
-
-http_archive(
-    name = "deflate64-0.1.10.crate",
-    sha256 = "26bf8fc351c5ed29b5c2f0cbbac1b209b74f60ecd62e675a998df72c49af5204",
-    strip_prefix = "deflate64-0.1.10",
-    urls = ["https://static.crates.io/crates/deflate64/0.1.10/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "deflate64-0.1.10",
-    srcs = [":deflate64-0.1.10.crate"],
-    crate = "deflate64",
-    crate_root = "deflate64-0.1.10.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
 )
 
 http_archive(
@@ -2859,7 +2771,6 @@ cargo.rust_library(
     crate = "getrandom",
     crate_root = "getrandom-0.3.4.crate/src/lib.rs",
     edition = "2021",
-    features = ["std"],
     platform = {
         "linux-arm64": dict(
             deps = [":libc-0.2.180"],
@@ -2872,6 +2783,12 @@ cargo.rust_library(
         ),
         "macos-x86_64": dict(
             deps = [":libc-0.2.180"],
+        ),
+        "windows-gnu": dict(
+            features = ["std"],
+        ),
+        "windows-msvc": dict(
+            features = ["std"],
         ),
     },
     visibility = [],
@@ -3411,7 +3328,6 @@ cargo.rust_library(
     crate = "hmac",
     crate_root = "hmac-0.12.1.crate/src/lib.rs",
     edition = "2018",
-    features = ["reset"],
     visibility = [],
     deps = [":digest-0.10.7"],
 )
@@ -4163,37 +4079,6 @@ cargo.rust_library(
     visibility = [],
 )
 
-http_archive(
-    name = "libbz2-rs-sys-0.2.2.crate",
-    sha256 = "2c4a545a15244c7d945065b5d392b2d2d7f21526fba56ce51467b06ed445e8f7",
-    strip_prefix = "libbz2-rs-sys-0.2.2",
-    urls = ["https://static.crates.io/crates/libbz2-rs-sys/0.2.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "libbz2-rs-sys-0.2.2",
-    srcs = [":libbz2-rs-sys-0.2.2.crate"],
-    crate = "libbz2_rs_sys",
-    crate_root = "libbz2-rs-sys-0.2.2.crate/src/lib.rs",
-    edition = "2021",
-    env = {
-        "CARGO_CRATE_NAME": "libbz2_rs_sys",
-        "CARGO_MANIFEST_DIR": "libbz2-rs-sys-0.2.2.crate",
-        "CARGO_PKG_AUTHORS": "",
-        "CARGO_PKG_DESCRIPTION": "a drop-in compatible rust bzip2 implementation",
-        "CARGO_PKG_NAME": "libbz2-rs-sys",
-        "CARGO_PKG_REPOSITORY": "https://github.com/trifectatechfoundation/libbzip2-rs",
-        "CARGO_PKG_VERSION": "0.2.2",
-        "CARGO_PKG_VERSION_MAJOR": "0",
-        "CARGO_PKG_VERSION_MINOR": "2",
-        "CARGO_PKG_VERSION_PATCH": "2",
-        "CARGO_PKG_VERSION_PRE": "",
-    },
-    features = ["rust-allocator"],
-    visibility = [],
-)
-
 alias(
     name = "libc",
     actual = ":libc-0.2.180",
@@ -4582,19 +4467,7 @@ cargo.rust_library(
     crate = "lzma_rust2",
     crate_root = "lzma-rust2-0.15.7.crate/src/lib.rs",
     edition = "2021",
-    features = [
-        "crc",
-        "encoder",
-        "optimization",
-        "sha2",
-        "std",
-        "xz",
-    ],
     visibility = [],
-    deps = [
-        ":crc-3.3.0",
-        ":sha2-0.10.9",
-    ],
 )
 
 http_archive(
@@ -5778,24 +5651,6 @@ cargo.rust_library(
     crate = "powerfmt",
     crate_root = "powerfmt-0.2.0.crate/src/lib.rs",
     edition = "2021",
-    visibility = [],
-)
-
-http_archive(
-    name = "ppmd-rust-1.4.0.crate",
-    sha256 = "efca4c95a19a79d1c98f791f10aebd5c1363b473244630bb7dbde1dc98455a24",
-    strip_prefix = "ppmd-rust-1.4.0",
-    urls = ["https://static.crates.io/crates/ppmd-rust/1.4.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "ppmd-rust-1.4.0",
-    srcs = [":ppmd-rust-1.4.0.crate"],
-    crate = "ppmd_rust",
-    crate_root = "ppmd-rust-1.4.0.crate/src/lib.rs",
-    edition = "2021",
-    features = ["default"],
     visibility = [],
 )
 
@@ -7555,32 +7410,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "sha2-0.10.9.crate",
-    sha256 = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283",
-    strip_prefix = "sha2-0.10.9",
-    urls = ["https://static.crates.io/crates/sha2/0.10.9/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "sha2-0.10.9",
-    srcs = [":sha2-0.10.9.crate"],
-    crate = "sha2",
-    crate_root = "sha2-0.10.9.crate/src/lib.rs",
-    edition = "2018",
-    features = [
-        "default",
-        "std",
-    ],
-    visibility = [],
-    deps = [
-        ":cfg-if-1.0.4",
-        ":cpufeatures-0.2.17",
-        ":digest-0.10.7",
-    ],
-)
-
-http_archive(
     name = "sharded-slab-0.1.7.crate",
     sha256 = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6",
     strip_prefix = "sharded-slab-0.1.7",
@@ -8175,7 +8004,6 @@ cargo.rust_library(
         "formatting",
         "parsing",
         "std",
-        "wasm-bindgen",
     ],
     visibility = [],
     deps = [
@@ -10870,33 +10698,8 @@ cargo.rust_library(
     features = [
         "alloc",
         "default",
-        "zeroize_derive",
     ],
     visibility = [],
-    deps = [":zeroize_derive-1.4.3"],
-)
-
-http_archive(
-    name = "zeroize_derive-1.4.3.crate",
-    sha256 = "85a5b4158499876c763cb03bc4e49185d3cccbabb15b33c627f7884f43db852e",
-    strip_prefix = "zeroize_derive-1.4.3",
-    urls = ["https://static.crates.io/crates/zeroize_derive/1.4.3/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "zeroize_derive-1.4.3",
-    srcs = [":zeroize_derive-1.4.3.crate"],
-    crate = "zeroize_derive",
-    crate_root = "zeroize_derive-1.4.3.crate/src/lib.rs",
-    edition = "2021",
-    proc_macro = True,
-    visibility = [],
-    deps = [
-        ":proc-macro2-1.0.106",
-        ":quote-1.0.44",
-        ":syn-2.0.114",
-    ],
 )
 
 http_archive(
@@ -11008,45 +10811,20 @@ cargo.rust_library(
         "CARGO_PKG_VERSION_PRE": "pre1",
     },
     features = [
-        "_bzip2_any",
         "_deflate-any",
-        "aes-crypto",
-        "bzip2",
-        "default",
         "deflate",
         "deflate-flate2",
         "deflate-flate2-zlib-rs",
         "deflate-zopfli",
-        "deflate64",
-        "getrandom",
-        "lzma",
-        "ppmd",
-        "time",
-        "xz",
-        "zstd",
     ],
     visibility = [],
     deps = [
-        ":aes-0.8.4",
-        ":bzip2-0.6.1",
-        ":constant_time_eq-0.3.1",
         ":crc32fast-1.5.0",
-        ":deflate64-0.1.10",
         ":flate2-1.1.9",
-        ":generic-array-0.14.7",
-        ":getrandom-0.3.4",
-        ":hmac-0.12.1",
         ":indexmap-2.13.0",
-        ":lzma-rust2-0.15.7",
         ":memchr-2.8.0",
-        ":pbkdf2-0.12.2",
-        ":ppmd-rust-1.4.0",
-        ":sha1-0.10.6",
-        ":time-0.3.45",
         ":typed-path-0.12.2",
-        ":zeroize-1.8.2",
         ":zopfli-0.8.3",
-        ":zstd-0.13.3",
     ],
 )
 
@@ -11124,6 +10902,12 @@ cargo.rust_library(
     ],
 )
 
+alias(
+    name = "zstd",
+    actual = ":zstd-0.13.3",
+    visibility = ["PUBLIC"],
+)
+
 http_archive(
     name = "zstd-0.13.3.crate",
     sha256 = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a",
@@ -11138,6 +10922,12 @@ cargo.rust_library(
     crate = "zstd",
     crate_root = "zstd-0.13.3.crate/src/lib.rs",
     edition = "2018",
+    features = [
+        "arrays",
+        "default",
+        "legacy",
+        "zdict_builder",
+    ],
     visibility = [],
     deps = [":zstd-safe-7.2.4"],
 )
@@ -11156,7 +10946,12 @@ cargo.rust_library(
     crate = "zstd_safe",
     crate_root = "zstd-safe-7.2.4.crate/src/lib.rs",
     edition = "2018",
-    features = ["std"],
+    features = [
+        "arrays",
+        "legacy",
+        "std",
+        "zdict_builder",
+    ],
     visibility = [],
     deps = [":zstd-sys-2.0.16+zstd.1.5.7"],
 )
@@ -11175,7 +10970,11 @@ cargo.rust_library(
     crate = "zstd_sys",
     crate_root = "zstd-sys-2.0.16+zstd.1.5.7.crate/src/lib.rs",
     edition = "2018",
-    features = ["std"],
+    features = [
+        "legacy",
+        "std",
+        "zdict_builder",
+    ],
     visibility = [],
     deps = ["third-party//zstd:zstd"],
 )

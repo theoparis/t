@@ -23,6 +23,7 @@ struct Vertex {
     tex_coords: [f32; 2],
     normal: [f32; 3],
     color: [f32; 3],
+    ao: f32,
 }
 
 impl Vertex {
@@ -55,6 +56,15 @@ impl Vertex {
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                wgpu::VertexAttribute {
+                    offset: (std::mem::size_of::<[f32; 3]>()
+                        + std::mem::size_of::<[f32; 2]>()
+                        + std::mem::size_of::<[f32; 3]>()
+                        + std::mem::size_of::<[f32; 3]>())
+                        as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32,
+                },
             ],
         }
     }
@@ -63,6 +73,12 @@ impl Vertex {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct CameraUniform {
+    view_proj: [[f32; 4]; 4],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct ShadowUniform {
     view_proj: [[f32; 4]; 4],
 }
 
@@ -383,7 +399,7 @@ impl Chunk {
 
 struct World {
     chunks: HashMap<(i32, i32, i32), CompressedChunk>,
-    cache: std::sync::RwLock<HashMap<(i32, i32, i32), (Chunk, Instant)>>,
+    cache: std::sync::RwLock<HashMap<(i32, i32, i32), (Arc<Chunk>, Instant)>>,
 }
 
 #[allow(dead_code)]
@@ -407,33 +423,39 @@ impl World {
         let by = y.rem_euclid(CHUNK_SIZE as i32);
         let bz = z.rem_euclid(CHUNK_SIZE as i32);
 
+        // Decompress and cache
+        self.get_chunk(cx, cy, cz)
+            .map(|chunk| chunk.get_block(bx, by, bz))
+            .unwrap_or(BlockType::AIR)
+    }
+
+    fn get_chunk(&self, x: i32, y: i32, z: i32) -> Option<Arc<Chunk>> {
         // Check cache first
         {
             let cache = self.cache.read().unwrap();
-            if let Some((chunk, _)) = cache.get(&(cx, cy, cz)) {
-                return chunk.get_block(bx, by, bz);
+            if let Some((chunk, _)) = cache.get(&(x, y, z)) {
+                return Some(chunk.clone());
             }
         }
 
         // Decompress and cache
-        if let Some(compressed) = self.chunks.get(&(cx, cy, cz)) {
-            let chunk = compressed.to_chunk();
+        if let Some(compressed) = self.chunks.get(&(x, y, z)) {
+            let chunk = Arc::new(compressed.to_chunk());
             let mut cache = self.cache.write().unwrap();
 
-            // Basic cache eviction (stay under 64 chunks)
-            if cache.len() > 64 {
+            // Cache eviction (updated to 2048 for better performance)
+            if cache.len() > 2048 {
                 let mut keys: Vec<_> = cache.iter().map(|(&k, &(_, v))| (k, v)).collect();
                 keys.sort_by_key(|&(_, v)| v);
-                for (k, _) in keys.iter().take(16) {
+                for (k, _) in keys.iter().take(512) {
                     cache.remove(k);
                 }
             }
 
-            cache.insert((cx, cy, cz), (chunk.clone(), Instant::now()));
-            return chunk.get_block(bx, by, bz);
+            cache.insert((x, y, z), (chunk.clone(), Instant::now()));
+            return Some(chunk);
         }
-
-        BlockType::AIR
+        None
     }
 
     fn is_blocked(&self, x: f32, y: f32, z: f32) -> bool {
@@ -445,21 +467,35 @@ impl World {
         let py = (player_pos.y / CHUNK_SIZE as f32).floor() as i32;
         let pz = (player_pos.z / CHUNK_SIZE as f32).floor() as i32;
 
-        let mut changed = false;
+        let mut chunks_to_gen = Vec::new();
         for x in (px - radius)..(px + radius) {
             for z in (pz - radius)..(pz + radius) {
                 for y in (py - 2)..(py + 2) {
                     if !self.chunks.contains_key(&(x, y, z)) {
-                        let chunk = self
-                            .load_chunk(x, y, z)
-                            .unwrap_or_else(|| CompressedChunk::from_chunk(&Chunk::new((x, y, z))));
-                        self.chunks.insert((x, y, z), chunk);
-                        changed = true;
+                        chunks_to_gen.push((x, y, z));
                     }
                 }
             }
         }
-        changed
+
+        if chunks_to_gen.is_empty() {
+            return false;
+        }
+
+        let new_chunks: Vec<((i32, i32, i32), CompressedChunk)> = chunks_to_gen
+            .into_par_iter()
+            .map(|(x, y, z)| {
+                let chunk = self
+                    .load_chunk(x, y, z)
+                    .unwrap_or_else(|| CompressedChunk::from_chunk(&Chunk::new((x, y, z))));
+                ((x, y, z), chunk)
+            })
+            .collect();
+
+        for (pos, chunk) in new_chunks {
+            self.chunks.insert(pos, chunk);
+        }
+        true
     }
 
     fn save_chunk(&self, x: i32, y: i32, z: i32) -> std::io::Result<()> {
@@ -495,12 +531,19 @@ struct State {
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    shadow_camera_bind_group: wgpu::BindGroup,
     depth_texture: Texture,
-    vertex_buffer: wgpu::Buffer,
-    num_vertices: u32,
+    chunk_meshes: HashMap<(i32, i32, i32), (wgpu::Buffer, u32)>,
     diffuse_bind_group: wgpu::BindGroup,
     last_frame: Instant,
     world: World,
+    shadow_pipeline: wgpu::RenderPipeline,
+    shadow_bind_group: wgpu::BindGroup,
+    shadow_buffer: wgpu::Buffer,
+    shadow_uniform: ShadowUniform,
+    shadow_view: wgpu::TextureView,
+    sky_pipeline: wgpu::RenderPipeline,
+    sky_vertex_buffer: wgpu::Buffer,
     mouse_locked: bool,
 }
 
@@ -607,7 +650,8 @@ impl State {
             zfar: 1000.0,
         };
 
-        let camera_controller = CameraController::new(1.0, 0.005);
+        // let camera_controller = CameraController::new(1.0, 0.005);
+        let camera_controller = CameraController::new(10.0, 0.005);
 
         let camera_uniform = CameraUniform {
             view_proj: camera.build_view_projection_matrix().to_cols_array_2d(),
@@ -643,12 +687,161 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
+        let shadow_map_size = 2048;
+        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Shadow Map"),
+            size: wgpu::Extent3d {
+                width: shadow_map_size,
+                height: shadow_map_size,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
+        });
+
+        let shadow_uniform = ShadowUniform {
+            view_proj: glam::Mat4::IDENTITY.to_cols_array_2d(),
+        };
+        let shadow_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Shadow Buffer"),
+            contents: bytemuck::cast_slice(&[shadow_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let shadow_camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: shadow_buffer.as_entire_binding(),
+            }],
+            label: Some("shadow_camera_bind_group"),
+        });
+
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+
+        let shadow_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Depth,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                        count: None,
+                    },
+                ],
+                label: Some("shadow_bind_group_layout"),
+            });
+
+        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &shadow_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: shadow_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&shadow_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
+                },
+            ],
+            label: Some("shadow_bind_group"),
+        });
+
+        let shadow_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Shadow Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout],
+                ..Default::default()
+            });
+
+        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Shadow Pipeline"),
+            layout: Some(&shadow_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_shadow"),
+                buffers: &[Vertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: None,
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 4,
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            cache: None,
+            multiview_mask: None,
+        });
+
+        let sky_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Sky Pipeline Layout"),
+            bind_group_layouts: &[&camera_bind_group_layout],
+            ..Default::default()
+        });
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &texture_bind_group_layout,
+                    &shadow_bind_group_layout,
+                ],
                 ..Default::default()
             });
 
@@ -695,19 +888,104 @@ impl State {
             cache: None,
             multiview_mask: None,
         });
+        let sky_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Sky Pipeline"),
+            layout: Some(&sky_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_sky"),
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    }],
+                }],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_sky"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            cache: None,
+            multiview_mask: None,
+        });
+
+        let sky_vertices: [[f32; 3]; 36] = [
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [-1.0, -1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [-1.0, 1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+        ];
+        let sky_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Sky Vertex Buffer"),
+            contents: bytemuck::cast_slice(&sky_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
 
         // Generate World
         let mut world = World::new();
-        world.generate_around(camera.eye, 4);
-
-        let vertices = generate_world_mesh(&world);
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        // Initial generation
+        let _ = world.generate_around(camera.eye, 6);
 
         Ok(Self {
             surface,
@@ -722,12 +1000,19 @@ impl State {
             camera_uniform,
             camera_buffer,
             camera_bind_group,
+            shadow_camera_bind_group,
             depth_texture,
-            vertex_buffer,
-            num_vertices: vertices.len() as u32,
+            chunk_meshes: HashMap::new(), // Initialized empty, will generate in first update
             diffuse_bind_group,
             last_frame: Instant::now(),
             world,
+            shadow_pipeline,
+            shadow_bind_group,
+            shadow_buffer,
+            shadow_uniform,
+            shadow_view,
+            sky_pipeline,
+            sky_vertex_buffer,
             mouse_locked: true,
         })
     }
@@ -745,6 +1030,15 @@ impl State {
             self.depth_texture =
                 Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
             self.camera.aspect = self.config.width as f32 / self.config.height as f32;
+            self.camera_uniform.view_proj = self
+                .camera
+                .build_view_projection_matrix()
+                .to_cols_array_2d();
+            self.queue.write_buffer(
+                &self.camera_buffer,
+                0,
+                bytemuck::cast_slice(&[self.camera_uniform]),
+            );
         }
     }
 
@@ -760,19 +1054,51 @@ impl State {
         self.camera_controller
             .update_camera(&mut self.camera, &self.world, dt);
 
-        // Infinite world: generate chunks and update mesh if needed
-        if self.world.generate_around(self.camera.eye, 6) {
-            let vertices = generate_world_mesh(&self.world);
-            self.vertex_buffer.destroy(); // Simple approach: recreate buffer
-            self.vertex_buffer =
-                self.device
+        // Infinite world: generate chunks with increased distance
+        self.world.generate_around(self.camera.eye, 16);
+
+        // Update meshes for chunks that don't have one
+        // Collect keys to avoid borrowing issues
+        let player_chunk = (
+            (self.camera.eye.x / 16.0).floor() as i32,
+            (self.camera.eye.y / 16.0).floor() as i32,
+            (self.camera.eye.z / 16.0).floor() as i32,
+        );
+        let mut chunks_to_mesh: Vec<(i32, i32, i32)> = self
+            .world
+            .chunks
+            .keys()
+            .filter(|&&pos| !self.chunk_meshes.contains_key(&pos))
+            .copied()
+            .collect();
+
+        // Sort by distance to player
+        chunks_to_mesh.sort_by_key(|(x, y, z)| {
+            let dx = x - player_chunk.0;
+            let dy = y - player_chunk.1;
+            let dz = z - player_chunk.2;
+            dx * dx + dy * dy + dz * dz
+        });
+
+        // Mesh closer chunks first, limit to 4 per frame for performance
+        for pos in chunks_to_mesh.into_iter().take(4) {
+            let vertices = generate_chunk_mesh(&self.world, pos);
+            if !vertices.is_empty() {
+                let buffer = self
+                    .device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Vertex Buffer"),
+                        label: Some(&format!("Chunk Mesh {:?}", pos)),
                         contents: bytemuck::cast_slice(&vertices),
                         usage: wgpu::BufferUsages::VERTEX,
                     });
-            self.num_vertices = vertices.len() as u32;
+                self.chunk_meshes
+                    .insert(pos, (buffer, vertices.len() as u32));
+            }
         }
+
+        // Remove meshes for chunks that are unloaded
+        self.chunk_meshes
+            .retain(|pos, _| self.world.chunks.contains_key(pos));
 
         self.camera_uniform.view_proj = self
             .camera
@@ -782,6 +1108,36 @@ impl State {
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
+        );
+
+        // Update shadow matrix to follow player with stability
+        let sun_dir = glam::vec3(0.5, 1.0, 0.3).normalize();
+        let center = self.camera.eye;
+        let sun_pos = center + sun_dir * 150.0;
+        let sun_view = glam::Mat4::look_at_rh(sun_pos, center, glam::Vec3::Y);
+
+        let sun_size = 100.0;
+        let world_units_per_texel = (sun_size * 2.0) / 2048.0;
+
+        // Transform center to view space to find texel offset
+        let view_center = sun_view.transform_point3(center);
+        let offset_x = view_center.x.rem_euclid(world_units_per_texel);
+        let offset_y = view_center.y.rem_euclid(world_units_per_texel);
+
+        let sun_proj = glam::Mat4::orthographic_rh(
+            -sun_size - offset_x,
+            sun_size - offset_x,
+            -sun_size - offset_y,
+            sun_size - offset_y,
+            0.1,
+            400.0,
+        );
+
+        self.shadow_uniform.view_proj = (sun_proj * sun_view).to_cols_array_2d();
+        self.queue.write_buffer(
+            &self.shadow_buffer,
+            0,
+            bytemuck::cast_slice(&[self.shadow_uniform]),
         );
     }
 
@@ -796,6 +1152,31 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
+        // 1. Shadow Pass
+        {
+            let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Shadow Pass"),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.shadow_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                ..Default::default()
+            });
+
+            shadow_pass.set_pipeline(&self.shadow_pipeline);
+            shadow_pass.set_bind_group(0, &self.shadow_camera_bind_group, &[]);
+            for (buffer, num_vertices) in self.chunk_meshes.values() {
+                shadow_pass.set_vertex_buffer(0, buffer.slice(..));
+                shadow_pass.draw(0..*num_vertices, 0..1);
+            }
+        }
+
+        // 2. Main Pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -805,9 +1186,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.5,
+                            g: 0.7,
+                            b: 0.9,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -821,16 +1202,47 @@ impl State {
                     }),
                     stencil_ops: None,
                 }),
-                occlusion_query_set: None,
-                timestamp_writes: None,
-                multiview_mask: None,
+                ..Default::default()
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..self.num_vertices, 0..1);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(2, &self.shadow_bind_group, &[]);
+            for (buffer, num_vertices) in self.chunk_meshes.values() {
+                render_pass.set_vertex_buffer(0, buffer.slice(..));
+                render_pass.draw(0..*num_vertices, 0..1);
+            }
+        }
+
+        // 3. Sky Pass
+        {
+            let mut sky_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Sky Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                ..Default::default()
+            });
+
+            sky_pass.set_pipeline(&self.sky_pipeline);
+            sky_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+            sky_pass.set_vertex_buffer(0, self.sky_vertex_buffer.slice(..));
+            sky_pass.draw(0..36, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -840,76 +1252,148 @@ impl State {
     }
 }
 
-fn generate_world_mesh(world: &World) -> Vec<Vertex> {
-    // 1. Pre-decompress all chunks to avoid redundant decompression during meshing
-    let decompressed_chunks: HashMap<(i32, i32, i32), Chunk> = world
-        .chunks
-        .iter()
-        .map(|(&pos, compressed)| (pos, compressed.to_chunk()))
-        .collect();
+fn generate_chunk_mesh(world: &World, chunk_pos: (i32, i32, i32)) -> Vec<Vertex> {
+    let (cx, cy, cz) = chunk_pos;
+    let chunk = match world.get_chunk(cx, cy, cz) {
+        Some(c) => c,
+        None => return Vec::new(),
+    };
 
-    // 2. Parallel meshing using the decompressed data
-    decompressed_chunks
-        .par_iter()
-        .map(|(&(cx, cy, cz), chunk)| {
-            let mut vertices = Vec::new();
-            let chunk_pos = [cx as f32 * 16.0, cy as f32 * 16.0, cz as f32 * 16.0];
+    // We need 6 neighbors for boundary checks (or rely on world.get_block which is slower but simpler)
+    // For "speed 10 lag", let's use world.get_block for boundaries. It uses cache now so it's reasonably fast.
+    // The previous implementation used a pre-collected hashmap. Here we access World directly.
 
-            for y in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
-                    for x in 0..CHUNK_SIZE {
-                        let block = chunk.get_block(x as i32, y as i32, z as i32);
-                        if block == BlockType::AIR {
-                            continue;
-                        }
+    let mut vertices = Vec::new();
+    let chunk_world_pos = [cx as f32 * 16.0, cy as f32 * 16.0, cz as f32 * 16.0];
 
-                        let pos = [
-                            x as f32 + chunk_pos[0],
-                            y as f32 + chunk_pos[1],
-                            z as f32 + chunk_pos[2],
-                        ];
+    for y in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let block = chunk.get_block(x as i32, y as i32, z as i32);
+                if block == BlockType::AIR {
+                    continue;
+                }
 
-                        let directions = [
-                            ([0, 0, 1], [0.0, 0.0, 1.0]),   // Front
-                            ([0, 0, -1], [0.0, 0.0, -1.0]), // Back
-                            ([1, 0, 0], [1.0, 0.0, 0.0]),   // Right
-                            ([-1, 0, 0], [-1.0, 0.0, 0.0]), // Left
-                            ([0, 1, 0], [0.0, 1.0, 0.0]),   // Top
-                            ([0, -1, 0], [0.0, -1.0, 0.0]), // Bottom
-                        ];
+                let pos = [
+                    x as f32 + chunk_world_pos[0],
+                    y as f32 + chunk_world_pos[1],
+                    z as f32 + chunk_world_pos[2],
+                ];
 
-                        for (dir, normal) in directions {
+                let directions = [
+                    ([0, 0, 1], [0.0, 0.0, 1.0]),   // Front
+                    ([0, 0, -1], [0.0, 0.0, -1.0]), // Back
+                    ([1, 0, 0], [1.0, 0.0, 0.0]),   // Right
+                    ([-1, 0, 0], [-1.0, 0.0, 0.0]), // Left
+                    ([0, 1, 0], [0.0, 1.0, 0.0]),   // Top
+                    ([0, -1, 0], [0.0, -1.0, 0.0]), // Bottom
+                ];
+
+                for (dir, normal) in directions {
+                    let neighbor_x = x as i32 + dir[0];
+                    let neighbor_y = y as i32 + dir[1];
+                    let neighbor_z = z as i32 + dir[2];
+
+                    // Optimized neighbor lookup
+                    let neighbor = if neighbor_x >= 0
+                        && neighbor_x < CHUNK_SIZE as i32
+                        && neighbor_y >= 0
+                        && neighbor_y < CHUNK_SIZE as i32
+                        && neighbor_z >= 0
+                        && neighbor_z < CHUNK_SIZE as i32
+                    {
+                        // Fast path: neighbor is in the same chunk
+                        chunk.get_block(neighbor_x, neighbor_y, neighbor_z)
+                    } else {
+                        // Slow path: neighbor is in another chunk
+                        world.get_block(
+                            cx * CHUNK_SIZE as i32 + neighbor_x,
+                            cy * CHUNK_SIZE as i32 + neighbor_y,
+                            cz * CHUNK_SIZE as i32 + neighbor_z,
+                        )
+                    };
+
+                    if neighbor == BlockType::AIR {
+                        // Calculate AO for the 4 corners of this face
+                        let mut ao = [1.0f32; 4];
+
+                        // Helper to get if a block is solid
+                        let is_solid = |dx: i32, dy: i32, dz: i32| {
                             let world_x = cx * CHUNK_SIZE as i32 + x as i32 + dir[0];
                             let world_y = cy * CHUNK_SIZE as i32 + y as i32 + dir[1];
                             let world_z = cz * CHUNK_SIZE as i32 + z as i32 + dir[2];
 
-                            let n_cx = world_x.div_euclid(CHUNK_SIZE as i32);
-                            let n_cy = world_y.div_euclid(CHUNK_SIZE as i32);
-                            let n_cz = world_z.div_euclid(CHUNK_SIZE as i32);
+                            // Check neighbor relative to the face
+                            world.is_blocked(
+                                (world_x + dx - dir[0]) as f32 + 0.5,
+                                (world_y + dy - dir[1]) as f32 + 0.5,
+                                (world_z + dz - dir[2]) as f32 + 0.5,
+                            )
+                        };
 
-                            let n_bx = world_x.rem_euclid(CHUNK_SIZE as i32);
-                            let n_by = world_y.rem_euclid(CHUNK_SIZE as i32);
-                            let n_bz = world_z.rem_euclid(CHUNK_SIZE as i32);
+                        // Tangents for the face to find neighbor blocks for AO
+                        let (tangent_u, tangent_v) = if dir[1] != 0 {
+                            ([1, 0, 0], [0, 0, 1]) // Top/Bottom
+                        } else if dir[0] != 0 {
+                            ([0, 1, 0], [0, 0, 1]) // Left/Right
+                        } else {
+                            ([1, 0, 0], [0, 1, 0]) // Front/Back
+                        };
 
-                            let neighbor = decompressed_chunks
-                                .get(&(n_cx, n_cy, n_cz))
-                                .map(|c| c.get_block(n_bx, n_by, n_bz))
-                                .unwrap_or(BlockType::AIR);
-
-                            if neighbor == BlockType::AIR {
-                                append_face(&mut vertices, pos, normal, block);
+                        let get_ao_val = |side1: bool, side2: bool, corner: bool| {
+                            if side1 && side2 {
+                                return 0.2;
                             }
+                            let count = (side1 as u32) + (side2 as u32) + (corner as u32);
+                            match count {
+                                0 => 1.0,
+                                1 => 0.7,
+                                2 => 0.4,
+                                _ => 0.2,
+                            }
+                        };
+
+                        // Calculate AO for each corner
+                        let uv_coords = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+                        for i in 0..4 {
+                            let u = uv_coords[i][0];
+                            let v = uv_coords[i][1];
+
+                            let s1 = is_solid(
+                                dir[0] + u * tangent_u[0],
+                                dir[1] + u * tangent_u[1],
+                                dir[2] + u * tangent_u[2],
+                            );
+                            let s2 = is_solid(
+                                dir[0] + v * tangent_v[0],
+                                dir[1] + v * tangent_v[1],
+                                dir[2] + v * tangent_v[2],
+                            );
+                            let c = is_solid(
+                                dir[0] + u * tangent_u[0] + v * tangent_v[0],
+                                dir[1] + u * tangent_u[1] + v * tangent_v[1],
+                                dir[2] + u * tangent_u[2] + v * tangent_v[2],
+                            );
+
+                            ao[i] = get_ao_val(s1, s2, c);
                         }
+
+                        append_face(&mut vertices, pos, normal, block, ao);
                     }
                 }
             }
-            vertices
-        })
-        .flatten()
-        .collect()
+        }
+    }
+    vertices
 }
 
-fn append_face(vertices: &mut Vec<Vertex>, pos: [f32; 3], normal: [f32; 3], block: BlockType) {
+fn append_face(
+    vertices: &mut Vec<Vertex>,
+    pos: [f32; 3],
+    normal: [f32; 3],
+    block: BlockType,
+    ao: [f32; 4],
+) {
     let (u_start, v_start, color) = match block {
         BlockType::GRASS => {
             if normal[1] > 0.5 {
@@ -992,18 +1476,21 @@ fn append_face(vertices: &mut Vec<Vertex>, pos: [f32; 3], normal: [f32; 3], bloc
         tex_coords: tv0,
         normal,
         color,
+        ao: ao[0],
     });
     vertices.push(Vertex {
         position: [pos[0] + v1[0], pos[1] + v1[1], pos[2] + v1[2]],
         tex_coords: tv1,
         normal,
         color,
+        ao: ao[1],
     });
     vertices.push(Vertex {
         position: [pos[0] + v2[0], pos[1] + v2[1], pos[2] + v2[2]],
         tex_coords: tv2,
         normal,
         color,
+        ao: ao[2],
     });
 
     vertices.push(Vertex {
@@ -1011,18 +1498,21 @@ fn append_face(vertices: &mut Vec<Vertex>, pos: [f32; 3], normal: [f32; 3], bloc
         tex_coords: tv0,
         normal,
         color,
+        ao: ao[0],
     });
     vertices.push(Vertex {
         position: [pos[0] + v2[0], pos[1] + v2[1], pos[2] + v2[2]],
         tex_coords: tv2,
         normal,
         color,
+        ao: ao[2],
     });
     vertices.push(Vertex {
         position: [pos[0] + v3[0], pos[1] + v3[1], pos[2] + v3[2]],
         tex_coords: tv3,
         normal,
         color,
+        ao: ao[3],
     });
 }
 

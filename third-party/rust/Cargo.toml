@@ -105,4 +105,5 @@ glam = { version = "0.31.0", default-features = false, features = [
     "std",
     "bytemuck",
     "fast-math",
+    "core-simd",
 ] }

@@ -1,1 +1,1 @@
-extra_deps = ["third-party//rust:libc-0.2.180", "third-party//:xattr"]
+# extra_deps = ["third-party//rust:libc-0.2.180", "third-party//:xattr"]

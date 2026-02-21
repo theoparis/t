@@ -8,7 +8,7 @@ name = "dummy"
 path = "dummy.rs"
 
 [dependencies]
-rootcause = { version = "0.12.0", default-features = false }
+rootcause = { version = "0.12.1", default-features = false }
 derive_more = { version = "2.1.1", default-features = false, features = [
     "display",
     "error",
@@ -21,7 +21,7 @@ reqwest = { version = "0.13.2", default-features = false, features = [
 ] }
 rustls-graviola = { git = "https://github.com/ctz/graviola" }
 graviola = { git = "https://github.com/ctz/graviola" }
-goblin = { version = "0.10.4", default-features = false, features = [
+goblin = { version = "0.10.5", default-features = false, features = [
     "endian_fd",
     "alloc",
     "mach32",
@@ -37,7 +37,7 @@ tokio = { version = "1.49.0", default-features = false, features = [
     "rt-multi-thread",
     "macros",
 ] }
-clap = { version = "4.5.57", features = [
+clap = { version = "4.5.60", features = [
     "derive",
     "std",
     "help",
@@ -50,10 +50,10 @@ des = "0.8.1"
 cbc = { version = "0.1.2", features = ["alloc"] }
 hex = "0.4.3"
 cipher = { version = "0.5.0", features = ["block-padding"] }
-indicatif = "0.18.3"
+indicatif = "0.18.4"
 byteorder = "1.5"
-bitflags = { version = "2.10.0", default-features = false }
-libc = { version = "0.2.180", default-features = false }
+bitflags = { version = "2.11.0", default-features = false }
+libc = { version = "0.2.182", default-features = false }
 xattr = "1.6.1"
 rustix = { version = "1.1.3", default-features = false, features = [
     "fs",
@@ -76,7 +76,7 @@ crc32fast = "1.5"
 hashbrown = "0.16"
 memmap2 = "0.9"
 binrw = { version = "0.15.0", default-features = false }
-zlib-rs = { version = "0.6.0", default-features = false, features = [
+zlib-rs = { version = "0.6.2", default-features = false, features = [
     "__internal-api",
 ] }
 rand_core = { version = "0.10.0", default-features = false }
@@ -84,10 +84,10 @@ rand_chacha = { version = "0.10.0", default-features = false }
 lzma-rust2 = { version = "=0.15.7", default-features = false }
 ruzstd = { version = "0.8.2", default-features = false }
 zstd = "0.13"
-rmcp = { version = "0.14.0", features = ["transport-io"] }
+rmcp = { version = "0.16.0", features = ["transport-io"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-rasn = "0.28.7"
+rasn = "0.28.8"
 cranelift = { version = "0.128.3", features = ["jit", "module", "native"] }
 wgpu = { version = "28.0.0", default-features = false, features = [
     "wgsl",
@@ -101,7 +101,7 @@ bytemuck = { version = "1.25.0", default-features = false, features = [
     "derive",
 ] }
 image = { version = "0.25.9", default-features = false, features = ["png"] }
-glam = { version = "0.31.0", default-features = false, features = [
+glam = { version = "0.32.0", default-features = false, features = [
     "std",
     "bytemuck",
     "fast-math",

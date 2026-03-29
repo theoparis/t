@@ -1,0 +1,13 @@
+load(":defs.bzl", "get_default_target_triple")
+
+constraint(
+    name = "target",
+    values = [
+        "x86_64-unknown-uefi",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-uefi",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-apple-darwin",
+    ],
+    default = get_default_target_triple(),
+)

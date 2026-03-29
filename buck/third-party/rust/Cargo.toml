@@ -33,29 +33,29 @@ linked_list_allocator = "0.10.5"
 spin = "0.10.0"
 plist = { version = "1.8.0", default-features = false, features = ["serde"] }
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
-tokio = { version = "1.49.0", default-features = false, features = [
+tokio = { version = "1.50.0", default-features = false, features = [
     "rt-multi-thread",
     "macros",
 ] }
-clap = { version = "4.5.60", features = [
+clap = { version = "4.6.0", features = [
     "derive",
     "std",
     "help",
 ], default-features = false }
 aes = "0.8.4"
-hmac = "0.12.1"
-sha1 = "0.10.6"
+hmac = "0.13.0"
+sha1 = "0.11.0"
 pbkdf2 = "0.12.2"
 des = "0.8.1"
 cbc = { version = "0.1.2", features = ["alloc"] }
 hex = "0.4.3"
-cipher = { version = "0.5.0", features = ["block-padding"] }
+cipher = { version = "0.5.1", features = ["block-padding"] }
 indicatif = "0.18.4"
 byteorder = "1.5"
 bitflags = { version = "2.11.0", default-features = false }
-libc = { version = "0.2.182", default-features = false }
+libc = { version = "0.2.183", default-features = false }
 xattr = "1.6.1"
-rustix = { version = "1.1.3", default-features = false, features = [
+rustix = { version = "1.1.4", default-features = false, features = [
     "fs",
     "std",
 ] }
@@ -75,35 +75,41 @@ flate2 = "1.1"
 crc32fast = "1.5"
 hashbrown = "0.16"
 memmap2 = "0.9"
-binrw = { version = "0.15.0", default-features = false }
-zlib-rs = { version = "0.6.2", default-features = false, features = [
+binrw = { version = "0.15.1", default-features = false }
+zlib-rs = { version = "0.6.3", default-features = false, features = [
     "__internal-api",
 ] }
 rand_core = { version = "0.10.0", default-features = false }
 rand_chacha = { version = "0.10.0", default-features = false }
 lzma-rust2 = { version = "=0.15.7", default-features = false }
-ruzstd = { version = "0.8.2", default-features = false }
-zstd = "0.13"
-rmcp = { version = "0.16.0", features = ["transport-io"] }
+lz4_flex = { git = "https://github.com/yujincheng08/lz4_flex", branch = "hc" }
+zstd-safe = { version = "7.2.4", default-features = false }
+rmcp = { version = "1.3.0", features = ["transport-io"] }
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-rasn = "0.28.8"
-cranelift = { version = "0.128.3", features = ["jit", "module", "native"] }
-wgpu = { version = "28.0.0", default-features = false, features = [
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+rasn = "0.28.10"
+cranelift = { version = "0.130.0", features = ["jit", "module", "native"] }
+wgpu = { version = "29.0.1", default-features = false, features = [
     "wgsl",
     "vulkan",
+    "vulkan-portability",
+    "metal",
+    "gles",
 ] }
 winit = { version = "0.31.0-beta.2", default-features = false, features = [
-    "x11",
+    "wayland",
 ] }
 pollster = "0.4.0"
 bytemuck = { version = "1.25.0", default-features = false, features = [
     "derive",
 ] }
-image = { version = "0.25.9", default-features = false, features = ["png"] }
-glam = { version = "0.32.0", default-features = false, features = [
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+glam = { version = "0.32.1", default-features = false, features = [
     "std",
     "bytemuck",
     "fast-math",
     "core-simd",
 ] }
+objc2 = "0.6.4"
+objc2-app-kit = "0.3.2"
+objc2-quartz-core = "0.3.2"

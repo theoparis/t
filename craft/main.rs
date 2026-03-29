@@ -1,14 +1,24 @@
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+
+mod vulkan_bindings;
+use vulkan_bindings::*;
+
 use bytemuck::{Pod, Zeroable};
 use image::GenericImageView;
 use rayon::prelude::*;
 use rootcause::{Report, report};
+use objc2::rc::Retained;
 use std::collections::HashMap;
+use std::ffi::{CStr, CString};
 use std::fs;
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 use std::path::Path;
+use std::ptr;
 use std::sync::Arc;
 use std::time::Instant;
-use wgpu::util::DeviceExt;
+
 use winit::{
     application::ApplicationHandler,
     event::*,
@@ -24,50 +34,6 @@ struct Vertex {
     normal: [f32; 3],
     color: [f32; 3],
     ao: f32,
-}
-
-impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-                wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 3]>() + std::mem::size_of::<[f32; 2]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 3]>()
-                        + std::mem::size_of::<[f32; 2]>()
-                        + std::mem::size_of::<[f32; 3]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 3,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 3]>()
-                        + std::mem::size_of::<[f32; 2]>()
-                        + std::mem::size_of::<[f32; 3]>()
-                        + std::mem::size_of::<[f32; 3]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 4,
-                    format: wgpu::VertexFormat::Float32,
-                },
-            ],
-        }
-    }
 }
 
 #[repr(C)]
@@ -339,12 +305,13 @@ struct CompressedChunk {
 impl CompressedChunk {
     fn from_chunk(chunk: &Chunk) -> Self {
         let bytes: &[u8] = bytemuck::cast_slice(&chunk.data);
-        let compressed = zstd::encode_all(bytes, 3).unwrap();
+        let compressed = lz4_flex::compress(bytes);
         Self { data: compressed }
     }
 
     fn to_chunk(&self) -> Chunk {
-        let decompressed = zstd::decode_all(Cursor::new(&self.data)).unwrap();
+        let decompressed =
+            lz4_flex::decompress(&self.data, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE).unwrap();
         let data: [BlockType; CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE] =
             bytemuck::cast_slice(&decompressed).try_into().unwrap();
         Chunk { data }
@@ -500,14 +467,14 @@ impl World {
 
     fn save_chunk(&self, x: i32, y: i32, z: i32) -> std::io::Result<()> {
         if let Some(chunk) = self.chunks.get(&(x, y, z)) {
-            let path = format!("saves/chunk_{}_{}_{}.zst", x, y, z);
+            let path = format!("saves/chunk_{}_{}_{}.lz4", x, y, z);
             fs::write(path, &chunk.data)?;
         }
         Ok(())
     }
 
     fn load_chunk(&self, x: i32, y: i32, z: i32) -> Option<CompressedChunk> {
-        let path = format!("saves/chunk_{}_{}_{}.zst", x, y, z);
+        let path = format!("saves/chunk_{}_{}_{}.lz4", x, y, z);
         fs::read(path).ok().map(|data| CompressedChunk { data })
     }
 
@@ -518,501 +485,566 @@ impl World {
     }
 }
 
+const VK_KHR_SURFACE_EXTENSION_NAME: &[u8] = b"VK_KHR_surface\0";
+const VK_EXT_METAL_SURFACE_EXTENSION_NAME: &[u8] = b"VK_EXT_metal_surface\0";
+const VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME: &[u8] = b"VK_KHR_portability_enumeration\0";
+const VK_KHR_SWAPCHAIN_EXTENSION_NAME: &[u8] = b"VK_KHR_swapchain\0";
+
+const fn vk_make_api_version(variant: u32, major: u32, minor: u32, patch: u32) -> u32 {
+    (variant << 29) | (major << 22) | (minor << 12) | patch
+}
+const VK_API_VERSION_1_0: u32 = vk_make_api_version(0, 1, 0, 0);
+
+struct VulkanState {
+    instance: VkInstance,
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    queue: VkQueue,
+    surface: VkSurfaceKHR,
+    swapchain: VkSwapchainKHR,
+    swapchain_images: Vec<VkImage>,
+    swapchain_image_views: Vec<VkImageView>,
+    swapchain_format: VkFormat,
+    swapchain_extent: VkExtent2D,
+}
+
+#[allow(non_camel_case_types)]
+type PFN_vkCreateMetalSurfaceEXT = unsafe extern "system" fn(
+    instance: VkInstance,
+    pCreateInfo: *const VkMetalSurfaceCreateInfoEXT,
+    pAllocator: *const VkAllocationCallbacks,
+    pSurface: *mut VkSurfaceKHR,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkGetPhysicalDeviceSurfaceSupportKHR = unsafe extern "system" fn(
+    physicalDevice: VkPhysicalDevice,
+    queueFamilyIndex: u32,
+    surface: VkSurfaceKHR,
+    pSupported: *mut VkBool32,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = unsafe extern "system" fn(
+    physicalDevice: VkPhysicalDevice,
+    surface: VkSurfaceKHR,
+    pSurfaceCapabilities: *mut VkSurfaceCapabilitiesKHR,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkGetPhysicalDeviceSurfaceFormatsKHR = unsafe extern "system" fn(
+    physicalDevice: VkPhysicalDevice,
+    surface: VkSurfaceKHR,
+    pSurfaceFormatCount: *mut u32,
+    pSurfaceFormats: *mut VkSurfaceFormatKHR,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkGetPhysicalDeviceSurfacePresentModesKHR = unsafe extern "system" fn(
+    physicalDevice: VkPhysicalDevice,
+    surface: VkSurfaceKHR,
+    pPresentModeCount: *mut u32,
+    pPresentModes: *mut VkPresentModeKHR,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkCreateSwapchainKHR = unsafe extern "system" fn(
+    device: VkDevice,
+    pCreateInfo: *const VkSwapchainCreateInfoKHR,
+    pAllocator: *const VkAllocationCallbacks,
+    pSwapchain: *mut VkSwapchainKHR,
+) -> VkResult;
+
+#[allow(non_camel_case_types)]
+type PFN_vkGetSwapchainImagesKHR = unsafe extern "system" fn(
+    device: VkDevice,
+    swapchain: VkSwapchainKHR,
+    pSwapchainImageCount: *mut u32,
+    pSwapchainImages: *mut VkImage,
+) -> VkResult;
+
+macro_rules! load_instance_func {
+    ($instance:expr, $name:ident, $type:ty) => {
+        unsafe {
+            let name = CString::new(stringify!($name)).unwrap();
+            let addr = vkGetInstanceProcAddr($instance, name.as_ptr());
+            let func: Option<$type> = std::mem::transmute(addr);
+            func.ok_or_else(|| report!(format!("Failed to load instance function: {}", stringify!($name))))?
+        }
+    };
+}
+
+macro_rules! load_device_func {
+    ($device:expr, $name:ident, $type:ty) => {
+        unsafe {
+            let name = CString::new(stringify!($name)).unwrap();
+            let addr = vkGetDeviceProcAddr($device, name.as_ptr());
+            let func: Option<$type> = std::mem::transmute(addr);
+            func.ok_or_else(|| report!(format!("Failed to load device function: {}", stringify!($name))))?
+        }
+    };
+}
+
+impl VulkanState {
+    unsafe fn new(window: &dyn Window) -> Result<Self, Report> {
+        // Instance creation
+        let app_info = VkApplicationInfo {
+            sType: VkStructureType::VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            pNext: ptr::null(),
+            pApplicationName: b"Craft\0".as_ptr() as *const i8,
+            applicationVersion: 1,
+            pEngineName: b"No Engine\0".as_ptr() as *const i8,
+            engineVersion: 1,
+            apiVersion: VK_API_VERSION_1_0,
+        };
+
+        let mut extension_prop_count = 0;
+        vkEnumerateInstanceExtensionProperties(
+            ptr::null(),
+            &mut extension_prop_count,
+            ptr::null_mut(),
+        );
+        let mut extension_props: Vec<VkExtensionProperties> =
+            Vec::with_capacity(extension_prop_count as usize);
+        vkEnumerateInstanceExtensionProperties(
+            ptr::null(),
+            &mut extension_prop_count,
+            extension_props.as_mut_ptr(),
+        );
+        extension_props.set_len(extension_prop_count as usize);
+
+        println!("Available extensions:");
+        for prop in &extension_props {
+            let name = CStr::from_ptr(prop.extensionName.as_ptr()).to_string_lossy();
+            println!("  {}", name);
+        }
+        std::io::stdout().flush().unwrap();
+
+        // For macOS, we need VK_KHR_portability_enumeration and VK_KHR_surface + VK_EXT_metal_surface
+        let extensions = vec![
+            VK_KHR_SURFACE_EXTENSION_NAME.as_ptr() as *const i8,
+            VK_EXT_METAL_SURFACE_EXTENSION_NAME.as_ptr() as *const i8,
+            VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME.as_ptr() as *const i8,
+        ];
+
+        let create_info = VkInstanceCreateInfo {
+            sType: VkStructureType::VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: VkInstanceCreateFlagBits::VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
+                as u32,
+            pApplicationInfo: &app_info,
+            enabledLayerCount: 0,
+            ppEnabledLayerNames: ptr::null(),
+            enabledExtensionCount: extensions.len() as u32,
+            ppEnabledExtensionNames: extensions.as_ptr(),
+        };
+
+        let mut instance = std::mem::MaybeUninit::uninit();
+        let result = vkCreateInstance(&create_info, ptr::null(), instance.as_mut_ptr());
+        if result != VkResult::VK_SUCCESS {
+            return Err(report!(format!("Failed to create Vulkan instance: {:?}", result)).into());
+        }
+        let instance = instance.assume_init();
+
+        // Load instance functions
+        let vkCreateMetalSurfaceEXT = load_instance_func!(instance, vkCreateMetalSurfaceEXT, PFN_vkCreateMetalSurfaceEXT);
+        let vkGetPhysicalDeviceSurfaceSupportKHR = load_instance_func!(instance, vkGetPhysicalDeviceSurfaceSupportKHR, PFN_vkGetPhysicalDeviceSurfaceSupportKHR);
+        let vkGetPhysicalDeviceSurfaceCapabilitiesKHR = load_instance_func!(instance, vkGetPhysicalDeviceSurfaceCapabilitiesKHR, PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+        let vkGetPhysicalDeviceSurfaceFormatsKHR = load_instance_func!(instance, vkGetPhysicalDeviceSurfaceFormatsKHR, PFN_vkGetPhysicalDeviceSurfaceFormatsKHR);
+        let vkGetPhysicalDeviceSurfacePresentModesKHR = load_instance_func!(instance, vkGetPhysicalDeviceSurfacePresentModesKHR, PFN_vkGetPhysicalDeviceSurfacePresentModesKHR);
+
+        // Surface creation
+        let mut surface = std::mem::MaybeUninit::uninit();
+        #[cfg(target_os = "macos")]
+        {
+            use objc2_app_kit::NSView;
+            use objc2_quartz_core::CAMetalLayer;
+            use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+            if let Ok(handle) = window.window_handle() {
+                if let RawWindowHandle::AppKit(handle) = handle.as_raw() {
+                    println!("Creating Metal surface on macOS...");
+                    std::io::stdout().flush().unwrap();
+
+                    unsafe {
+                        let view = handle.ns_view.as_ptr() as *mut NSView;
+                        (*view).setWantsLayer(true);
+                        let layer = CAMetalLayer::new();
+                        (*view).setLayer(Some(std::mem::transmute(layer.clone())));
+
+                        let surface_create_info = VkMetalSurfaceCreateInfoEXT {
+                            sType: VkStructureType::VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
+                            pNext: ptr::null(),
+                            flags: 0,
+                            pLayer: Retained::as_ptr(&layer) as *const _,
+                        };
+                        let result = vkCreateMetalSurfaceEXT(
+                            instance,
+                            &surface_create_info,
+                            ptr::null(),
+                            surface.as_mut_ptr(),
+                        );
+                        if result != VkResult::VK_SUCCESS {
+                            return Err(report!(format!(
+                                "Failed to create Metal surface: {:?}",
+                                result
+                            ))
+                            .into());
+                        }
+                    }
+                    println!("Metal surface created successfully");
+                    std::io::stdout().flush().unwrap();
+                } else {
+                    return Err(report!("Not an AppKit window handle").into());
+                }
+            } else {
+                return Err(report!("Failed to get window handle").into());
+            }
+        }
+
+        let surface = surface.assume_init();
+        if surface == ptr::null_mut() {
+            return Err(report!("Surface handle is null after creation").into());
+        }
+
+        // Physical device selection
+        let mut device_count = 0;
+        vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut());
+        println!("Found {} physical devices", device_count);
+        std::io::stdout().flush().unwrap();
+        if device_count == 0 {
+            return Err(report!("No Vulkan physical devices found").into());
+        }
+        let mut devices: Vec<VkPhysicalDevice> = Vec::with_capacity(device_count as usize);
+        vkEnumeratePhysicalDevices(instance, &mut device_count, devices.as_mut_ptr());
+        devices.set_len(device_count as usize);
+        let physical_device = devices[0]; // Just take the first one for now
+
+        // Find queue family with graphics and presentation support
+        let mut queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, ptr::null_mut());
+        let mut queue_families: Vec<VkQueueFamilyProperties> = Vec::with_capacity(queue_family_count as usize);
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &mut queue_family_count, queue_families.as_mut_ptr());
+        queue_families.set_len(queue_family_count as usize);
+
+        let mut graphics_family = None;
+        for (i, family) in queue_families.iter().enumerate() {
+            if (family.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32) != 0 {
+                let mut present_support = 0;
+                unsafe {
+                    vkGetPhysicalDeviceSurfaceSupportKHR(
+                        physical_device,
+                        i as u32,
+                        surface,
+                        &mut present_support,
+                    );
+                }
+                if present_support != 0 {
+                    graphics_family = Some(i as u32);
+                    break;
+                }
+            }
+        }
+
+        let queue_family_index = graphics_family
+            .ok_or_else(|| report!("Failed to find a suitable queue family"))?;
+        println!("Selected queue family index: {}", queue_family_index);
+        std::io::stdout().flush().unwrap();
+
+        let mut dev_extension_prop_count = 0;
+        vkEnumerateDeviceExtensionProperties(
+            physical_device,
+            ptr::null(),
+            &mut dev_extension_prop_count,
+            ptr::null_mut(),
+        );
+        let mut dev_extension_props: Vec<VkExtensionProperties> =
+            Vec::with_capacity(dev_extension_prop_count as usize);
+        vkEnumerateDeviceExtensionProperties(
+            physical_device,
+            ptr::null(),
+            &mut dev_extension_prop_count,
+            dev_extension_props.as_mut_ptr(),
+        );
+        dev_extension_props.set_len(dev_extension_prop_count as usize);
+
+        println!(
+            "Available device extensions ({}):",
+            dev_extension_prop_count
+        );
+        let mut has_portability_subset = false;
+        for prop in &dev_extension_props {
+            let name = CStr::from_ptr(prop.extensionName.as_ptr()).to_string_lossy();
+            println!("  {}", name);
+            if name == "VK_KHR_portability_subset" {
+                has_portability_subset = true;
+            }
+        }
+        std::io::stdout().flush().unwrap();
+
+        // Device creation
+        let queue_priority = 1.0f32;
+        let queue_create_info = VkDeviceQueueCreateInfo {
+            sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            queueFamilyIndex: queue_family_index,
+            queueCount: 1,
+            pQueuePriorities: &queue_priority,
+        };
+
+        let mut device_extensions = vec![VK_KHR_SWAPCHAIN_EXTENSION_NAME.as_ptr() as *const i8];
+        if has_portability_subset {
+            device_extensions.push(b"VK_KHR_portability_subset\0".as_ptr() as *const i8);
+        }
+
+        let device_create_info = VkDeviceCreateInfo {
+            sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            queueCreateInfoCount: 1,
+            pQueueCreateInfos: &queue_create_info,
+            enabledLayerCount: 0,
+            ppEnabledLayerNames: ptr::null(),
+            enabledExtensionCount: device_extensions.len() as u32,
+            ppEnabledExtensionNames: device_extensions.as_ptr(),
+            pEnabledFeatures: ptr::null(),
+        };
+
+        let mut device = std::mem::MaybeUninit::uninit();
+        println!("Creating logical device...");
+        std::io::stdout().flush().unwrap();
+        let result = vkCreateDevice(
+            physical_device,
+            &device_create_info,
+            ptr::null(),
+            device.as_mut_ptr(),
+        );
+        if result != VkResult::VK_SUCCESS {
+            return Err(report!(format!("Failed to create logical device: {:?}", result)).into());
+        }
+        let device = device.assume_init();
+        println!("Logical device created successfully");
+        std::io::stdout().flush().unwrap();
+
+        // Load device functions
+        let vkCreateSwapchainKHR =
+            load_device_func!(device, vkCreateSwapchainKHR, PFN_vkCreateSwapchainKHR);
+        let vkGetSwapchainImagesKHR =
+            load_device_func!(device, vkGetSwapchainImagesKHR, PFN_vkGetSwapchainImagesKHR);
+
+        let mut queue = std::mem::MaybeUninit::uninit();
+        vkGetDeviceQueue(device, queue_family_index, 0, queue.as_mut_ptr());
+        let queue = queue.assume_init();
+
+        // Swapchain creation
+        let mut surface_capabilities = std::mem::MaybeUninit::uninit();
+        unsafe {
+            vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+                physical_device,
+                surface,
+                surface_capabilities.as_mut_ptr(),
+            );
+        }
+        let surface_capabilities = surface_capabilities.assume_init();
+
+        let mut format_count = 0;
+        unsafe {
+            vkGetPhysicalDeviceSurfaceFormatsKHR(
+                physical_device,
+                surface,
+                &mut format_count,
+                ptr::null_mut(),
+            );
+        }
+        let mut surface_formats: Vec<VkSurfaceFormatKHR> =
+            Vec::with_capacity(format_count as usize);
+        unsafe {
+            vkGetPhysicalDeviceSurfaceFormatsKHR(
+                physical_device,
+                surface,
+                &mut format_count,
+                surface_formats.as_mut_ptr(),
+            );
+        }
+        surface_formats.set_len(format_count as usize);
+
+        let surface_format = surface_formats
+            .iter()
+            .find(|f| {
+                f.format == VkFormat::VK_FORMAT_B8G8R8A8_UNORM
+                    && f.colorSpace == VkColorSpaceKHR::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+            })
+            .cloned()
+            .unwrap_or(surface_formats[0]);
+
+        let extent = if surface_capabilities.currentExtent.width != u32::MAX {
+            surface_capabilities.currentExtent
+        } else {
+            VkExtent2D {
+                width: window
+                    .outer_size()
+                    .width
+                    .clamp(
+                        surface_capabilities.minImageExtent.width,
+                        surface_capabilities.maxImageExtent.width,
+                    ),
+                height: window
+                    .outer_size()
+                    .height
+                    .clamp(
+                        surface_capabilities.minImageExtent.height,
+                        surface_capabilities.maxImageExtent.height,
+                    ),
+            }
+        };
+
+        let mut image_count = surface_capabilities.minImageCount + 1;
+        if surface_capabilities.maxImageCount > 0
+            && image_count > surface_capabilities.maxImageCount
+        {
+            image_count = surface_capabilities.maxImageCount;
+        }
+
+        println!(
+            "Swapchain info: format={:?}, extent={:?}x{:?}, images={}",
+            surface_format.format, extent.width, extent.height, image_count
+        );
+        std::io::stdout().flush().unwrap();
+
+        let swapchain_create_info = VkSwapchainCreateInfoKHR {
+            sType: VkStructureType::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            pNext: ptr::null(),
+            flags: 0,
+            surface,
+            minImageCount: image_count,
+            imageFormat: surface_format.format,
+            imageColorSpace: surface_format.colorSpace,
+            imageExtent: extent,
+            imageArrayLayers: 1,
+            imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32,
+            imageSharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
+            queueFamilyIndexCount: 0,
+            pQueueFamilyIndices: ptr::null(),
+            preTransform: surface_capabilities.currentTransform,
+            compositeAlpha: VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            presentMode: VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR,
+            clipped: VK_TRUE as u32,
+            oldSwapchain: ptr::null_mut(),
+        };
+
+        let mut swapchain = std::mem::MaybeUninit::uninit();
+        println!("Creating swapchain...");
+        std::io::stdout().flush().unwrap();
+        let result = unsafe {
+            vkCreateSwapchainKHR(
+                device,
+                &swapchain_create_info,
+                ptr::null(),
+                swapchain.as_mut_ptr(),
+            )
+        };
+        if result != VkResult::VK_SUCCESS {
+            return Err(report!(format!("Failed to create swapchain: {:?}", result)).into());
+        }
+        let swapchain = swapchain.assume_init();
+        println!("Swapchain created successfully");
+        std::io::stdout().flush().unwrap();
+
+        let mut image_count = 0;
+        unsafe {
+            vkGetSwapchainImagesKHR(device, swapchain, &mut image_count, ptr::null_mut());
+        }
+        let mut swapchain_images: Vec<VkImage> = Vec::with_capacity(image_count as usize);
+        unsafe {
+            vkGetSwapchainImagesKHR(
+                device,
+                swapchain,
+                &mut image_count,
+                swapchain_images.as_mut_ptr(),
+            );
+        }
+        swapchain_images.set_len(image_count as usize);
+
+        let mut swapchain_image_views = Vec::new();
+        for image in &swapchain_images {
+            let view_create_info = VkImageViewCreateInfo {
+                sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                image: *image,
+                viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+                format: surface_format.format,
+                components: VkComponentMapping {
+                    r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                    g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                    b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                    a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+                subresourceRange: VkImageSubresourceRange {
+                    aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
+                    baseMipLevel: 0,
+                    levelCount: 1,
+                    baseArrayLayer: 0,
+                    layerCount: 1,
+                },
+            };
+            let mut view = std::mem::MaybeUninit::uninit();
+            vkCreateImageView(device, &view_create_info, ptr::null(), view.as_mut_ptr());
+            swapchain_image_views.push(view.assume_init());
+        }
+
+        Ok(Self {
+            instance,
+            physical_device,
+            device,
+            queue,
+            surface,
+            swapchain,
+            swapchain_images,
+            swapchain_image_views,
+            swapchain_format: surface_format.format,
+            swapchain_extent: extent,
+        })
+    }
+}
+
 struct State {
-    surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    vulkan: VulkanState,
     window: Arc<dyn Window>,
-    render_pipeline: wgpu::RenderPipeline,
     camera: Camera,
     camera_controller: CameraController,
-    camera_uniform: CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
-    shadow_camera_bind_group: wgpu::BindGroup,
-    depth_texture: Texture,
-    chunk_meshes: HashMap<(i32, i32, i32), (wgpu::Buffer, u32)>,
-    diffuse_bind_group: wgpu::BindGroup,
     last_frame: Instant,
     world: World,
-    shadow_pipeline: wgpu::RenderPipeline,
-    shadow_bind_group: wgpu::BindGroup,
-    shadow_buffer: wgpu::Buffer,
-    shadow_uniform: ShadowUniform,
-    shadow_view: wgpu::TextureView,
-    sky_pipeline: wgpu::RenderPipeline,
-    sky_vertex_buffer: wgpu::Buffer,
     mouse_locked: bool,
 }
 
 impl State {
-    async fn new(window: Box<dyn Window>) -> Result<Self, Report> {
-        rustls_graviola::default_provider()
-            .install_default()
-            .unwrap();
-
-        let window: Arc<dyn Window> = Arc::from(window);
-        let size = window.surface_size();
-
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
-        let surface = instance
-            .create_surface(window.clone())
-            .map_err(Report::new)?;
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .map_err(|e| report!(e))?;
-
-        let (device, queue): (wgpu::Device, wgpu::Queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor::default())
-            .await
-            .map_err(|e: wgpu::RequestDeviceError| report!(e))?;
-
-        let surface_caps = surface.get_capabilities(&adapter);
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-        surface.configure(&device, &config);
-
-        // Assets
-        let diffuse_bytes = download_assets().await?;
-        let diffuse_texture = Texture::from_bytes(&device, &queue, &diffuse_bytes, "atlas.png")?;
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+    fn new(window: Arc<dyn Window>) -> Result<Self, Report> {
+        let vulkan = unsafe { VulkanState::new(window.as_ref())? };
 
         let camera = Camera {
             eye: (0.0, 64.0, 0.0).into(),
             yaw: -std::f32::consts::FRAC_PI_2,
             pitch: 0.0,
             up: glam::Vec3::Y,
-            aspect: config.width as f32 / config.height as f32,
+            aspect: window.outer_size().width as f32 / window.outer_size().height as f32,
             fovy: 45.0f32.to_radians(),
             znear: 0.1,
             zfar: 1000.0,
         };
 
-        // let camera_controller = CameraController::new(1.0, 0.005);
         let camera_controller = CameraController::new(10.0, 0.005);
-
-        let camera_uniform = CameraUniform {
-            view_proj: camera.build_view_projection_matrix().to_cols_array_2d(),
-        };
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
-
-        let shadow_map_size = 2048;
-        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Shadow Map"),
-            size: wgpu::Extent3d {
-                width: shadow_map_size,
-                height: shadow_map_size,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            ..Default::default()
-        });
-
-        let shadow_uniform = ShadowUniform {
-            view_proj: glam::Mat4::IDENTITY.to_cols_array_2d(),
-        };
-        let shadow_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Shadow Buffer"),
-            contents: bytemuck::cast_slice(&[shadow_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let shadow_camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: shadow_buffer.as_entire_binding(),
-            }],
-            label: Some("shadow_camera_bind_group"),
-        });
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
-
-        let shadow_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Depth,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
-                        count: None,
-                    },
-                ],
-                label: Some("shadow_bind_group_layout"),
-            });
-
-        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &shadow_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: shadow_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&shadow_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
-                },
-            ],
-            label: Some("shadow_bind_group"),
-        });
-
-        let shadow_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Shadow Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
-                ..Default::default()
-            });
-
-        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Shadow Pipeline"),
-            layout: Some(&shadow_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_shadow"),
-                buffers: &[Vertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: None,
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState {
-                    constant: 4,
-                    slope_scale: 2.0,
-                    clamp: 0.0,
-                },
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            cache: None,
-            multiview_mask: None,
-        });
-
-        let sky_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Sky Pipeline Layout"),
-            bind_group_layouts: &[&camera_bind_group_layout],
-            ..Default::default()
-        });
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera_bind_group_layout,
-                    &texture_bind_group_layout,
-                    &shadow_bind_group_layout,
-                ],
-                ..Default::default()
-            });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            cache: None,
-            multiview_mask: None,
-        });
-        let sky_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Sky Pipeline"),
-            layout: Some(&sky_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_sky"),
-                buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
-                }],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_sky"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            cache: None,
-            multiview_mask: None,
-        });
-
-        let sky_vertices: [[f32; 3]; 36] = [
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, 1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [-1.0, -1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, 1.0, 1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
-            [-1.0, -1.0, 1.0],
-            [-1.0, 1.0, -1.0],
-            [1.0, 1.0, -1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [-1.0, 1.0, 1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [1.0, -1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [1.0, -1.0, 1.0],
-        ];
-        let sky_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Sky Vertex Buffer"),
-            contents: bytemuck::cast_slice(&sky_vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
-
-        // Generate World
         let mut world = World::new();
-        // Initial generation
         let _ = world.generate_around(camera.eye, 6);
 
         Ok(Self {
-            surface,
-            device,
-            queue,
-            config,
-            size,
+            vulkan,
             window,
-            render_pipeline,
             camera,
             camera_controller,
-            camera_uniform,
-            camera_buffer,
-            camera_bind_group,
-            shadow_camera_bind_group,
-            depth_texture,
-            chunk_meshes: HashMap::new(), // Initialized empty, will generate in first update
-            diffuse_bind_group,
             last_frame: Instant::now(),
             world,
-            shadow_pipeline,
-            shadow_bind_group,
-            shadow_buffer,
-            shadow_uniform,
-            shadow_view,
-            sky_pipeline,
-            sky_vertex_buffer,
             mouse_locked: true,
         })
     }
@@ -1021,25 +1053,8 @@ impl State {
         self.window.as_ref()
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            self.depth_texture =
-                Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
-            self.camera.aspect = self.config.width as f32 / self.config.height as f32;
-            self.camera_uniform.view_proj = self
-                .camera
-                .build_view_projection_matrix()
-                .to_cols_array_2d();
-            self.queue.write_buffer(
-                &self.camera_buffer,
-                0,
-                bytemuck::cast_slice(&[self.camera_uniform]),
-            );
-        }
+    fn resize(&mut self, _new_size: winit::dpi::PhysicalSize<u32>) {
+        // Handle swapchain recreation here
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -1054,637 +1069,16 @@ impl State {
         self.camera_controller
             .update_camera(&mut self.camera, &self.world, dt);
 
-        // Infinite world: generate chunks with increased distance
         self.world.generate_around(self.camera.eye, 16);
-
-        // Update meshes for chunks that don't have one
-        // Collect keys to avoid borrowing issues
-        let player_chunk = (
-            (self.camera.eye.x / 16.0).floor() as i32,
-            (self.camera.eye.y / 16.0).floor() as i32,
-            (self.camera.eye.z / 16.0).floor() as i32,
-        );
-        let mut chunks_to_mesh: Vec<(i32, i32, i32)> = self
-            .world
-            .chunks
-            .keys()
-            .filter(|&&pos| !self.chunk_meshes.contains_key(&pos))
-            .copied()
-            .collect();
-
-        // Sort by distance to player
-        chunks_to_mesh.sort_by_key(|(x, y, z)| {
-            let dx = x - player_chunk.0;
-            let dy = y - player_chunk.1;
-            let dz = z - player_chunk.2;
-            dx * dx + dy * dy + dz * dz
-        });
-
-        // Mesh closer chunks first, limit to 4 per frame for performance
-        for pos in chunks_to_mesh.into_iter().take(4) {
-            let vertices = generate_chunk_mesh(&self.world, pos);
-            if !vertices.is_empty() {
-                let buffer = self
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some(&format!("Chunk Mesh {:?}", pos)),
-                        contents: bytemuck::cast_slice(&vertices),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    });
-                self.chunk_meshes
-                    .insert(pos, (buffer, vertices.len() as u32));
-            }
-        }
-
-        // Remove meshes for chunks that are unloaded
-        self.chunk_meshes
-            .retain(|pos, _| self.world.chunks.contains_key(pos));
-
-        self.camera_uniform.view_proj = self
-            .camera
-            .build_view_projection_matrix()
-            .to_cols_array_2d();
-        self.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_uniform]),
-        );
-
-        // Update shadow matrix to follow player with stability
-        let sun_dir = glam::vec3(0.5, 1.0, 0.3).normalize();
-        let center = self.camera.eye;
-        let sun_pos = center + sun_dir * 150.0;
-        let sun_view = glam::Mat4::look_at_rh(sun_pos, center, glam::Vec3::Y);
-
-        let sun_size = 100.0;
-        let world_units_per_texel = (sun_size * 2.0) / 2048.0;
-
-        // Transform center to view space to find texel offset
-        let view_center = sun_view.transform_point3(center);
-        let offset_x = view_center.x.rem_euclid(world_units_per_texel);
-        let offset_y = view_center.y.rem_euclid(world_units_per_texel);
-
-        let sun_proj = glam::Mat4::orthographic_rh(
-            -sun_size - offset_x,
-            sun_size - offset_x,
-            -sun_size - offset_y,
-            sun_size - offset_y,
-            0.1,
-            400.0,
-        );
-
-        self.shadow_uniform.view_proj = (sun_proj * sun_view).to_cols_array_2d();
-        self.queue.write_buffer(
-            &self.shadow_buffer,
-            0,
-            bytemuck::cast_slice(&[self.shadow_uniform]),
-        );
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        // 1. Shadow Pass
-        {
-            let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Shadow Pass"),
-                color_attachments: &[],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.shadow_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                ..Default::default()
-            });
-
-            shadow_pass.set_pipeline(&self.shadow_pipeline);
-            shadow_pass.set_bind_group(0, &self.shadow_camera_bind_group, &[]);
-            for (buffer, num_vertices) in self.chunk_meshes.values() {
-                shadow_pass.set_vertex_buffer(0, buffer.slice(..));
-                shadow_pass.draw(0..*num_vertices, 0..1);
-            }
-        }
-
-        // 2. Main Pass
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.5,
-                            g: 0.7,
-                            b: 0.9,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                ..Default::default()
-            });
-
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(2, &self.shadow_bind_group, &[]);
-            for (buffer, num_vertices) in self.chunk_meshes.values() {
-                render_pass.set_vertex_buffer(0, buffer.slice(..));
-                render_pass.draw(0..*num_vertices, 0..1);
-            }
-        }
-
-        // 3. Sky Pass
-        {
-            let mut sky_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Sky Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                ..Default::default()
-            });
-
-            sky_pass.set_pipeline(&self.sky_pipeline);
-            sky_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            sky_pass.set_vertex_buffer(0, self.sky_vertex_buffer.slice(..));
-            sky_pass.draw(0..36, 0..1);
-        }
-
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
-
-        Ok(())
-    }
-}
-
-fn generate_chunk_mesh(world: &World, chunk_pos: (i32, i32, i32)) -> Vec<Vertex> {
-    let (cx, cy, cz) = chunk_pos;
-    let chunk = match world.get_chunk(cx, cy, cz) {
-        Some(c) => c,
-        None => return Vec::new(),
-    };
-
-    // We need 6 neighbors for boundary checks (or rely on world.get_block which is slower but simpler)
-    // For "speed 10 lag", let's use world.get_block for boundaries. It uses cache now so it's reasonably fast.
-    // The previous implementation used a pre-collected hashmap. Here we access World directly.
-
-    let mut vertices = Vec::new();
-    let chunk_world_pos = [cx as f32 * 16.0, cy as f32 * 16.0, cz as f32 * 16.0];
-
-    for y in 0..CHUNK_SIZE {
-        for z in 0..CHUNK_SIZE {
-            for x in 0..CHUNK_SIZE {
-                let block = chunk.get_block(x as i32, y as i32, z as i32);
-                if block == BlockType::AIR {
-                    continue;
-                }
-
-                let pos = [
-                    x as f32 + chunk_world_pos[0],
-                    y as f32 + chunk_world_pos[1],
-                    z as f32 + chunk_world_pos[2],
-                ];
-
-                let directions = [
-                    ([0, 0, 1], [0.0, 0.0, 1.0]),   // Front
-                    ([0, 0, -1], [0.0, 0.0, -1.0]), // Back
-                    ([1, 0, 0], [1.0, 0.0, 0.0]),   // Right
-                    ([-1, 0, 0], [-1.0, 0.0, 0.0]), // Left
-                    ([0, 1, 0], [0.0, 1.0, 0.0]),   // Top
-                    ([0, -1, 0], [0.0, -1.0, 0.0]), // Bottom
-                ];
-
-                for (dir, normal) in directions {
-                    let neighbor_x = x as i32 + dir[0];
-                    let neighbor_y = y as i32 + dir[1];
-                    let neighbor_z = z as i32 + dir[2];
-
-                    // Optimized neighbor lookup
-                    let neighbor = if neighbor_x >= 0
-                        && neighbor_x < CHUNK_SIZE as i32
-                        && neighbor_y >= 0
-                        && neighbor_y < CHUNK_SIZE as i32
-                        && neighbor_z >= 0
-                        && neighbor_z < CHUNK_SIZE as i32
-                    {
-                        // Fast path: neighbor is in the same chunk
-                        chunk.get_block(neighbor_x, neighbor_y, neighbor_z)
-                    } else {
-                        // Slow path: neighbor is in another chunk
-                        world.get_block(
-                            cx * CHUNK_SIZE as i32 + neighbor_x,
-                            cy * CHUNK_SIZE as i32 + neighbor_y,
-                            cz * CHUNK_SIZE as i32 + neighbor_z,
-                        )
-                    };
-
-                    if neighbor == BlockType::AIR {
-                        // Calculate AO for the 4 corners of this face
-                        let mut ao = [1.0f32; 4];
-
-                        // Helper to get if a block is solid
-                        let is_solid = |dx: i32, dy: i32, dz: i32| {
-                            let world_x = cx * CHUNK_SIZE as i32 + x as i32 + dir[0];
-                            let world_y = cy * CHUNK_SIZE as i32 + y as i32 + dir[1];
-                            let world_z = cz * CHUNK_SIZE as i32 + z as i32 + dir[2];
-
-                            // Check neighbor relative to the face
-                            world.is_blocked(
-                                (world_x + dx - dir[0]) as f32 + 0.5,
-                                (world_y + dy - dir[1]) as f32 + 0.5,
-                                (world_z + dz - dir[2]) as f32 + 0.5,
-                            )
-                        };
-
-                        // Tangents for the face to find neighbor blocks for AO
-                        let (tangent_u, tangent_v) = if dir[1] != 0 {
-                            ([1, 0, 0], [0, 0, 1]) // Top/Bottom
-                        } else if dir[0] != 0 {
-                            ([0, 1, 0], [0, 0, 1]) // Left/Right
-                        } else {
-                            ([1, 0, 0], [0, 1, 0]) // Front/Back
-                        };
-
-                        let get_ao_val = |side1: bool, side2: bool, corner: bool| {
-                            if side1 && side2 {
-                                return 0.2;
-                            }
-                            let count = (side1 as u32) + (side2 as u32) + (corner as u32);
-                            match count {
-                                0 => 1.0,
-                                1 => 0.7,
-                                2 => 0.4,
-                                _ => 0.2,
-                            }
-                        };
-
-                        // Calculate AO for each corner
-                        let uv_coords = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-                        for i in 0..4 {
-                            let u = uv_coords[i][0];
-                            let v = uv_coords[i][1];
-
-                            let s1 = is_solid(
-                                dir[0] + u * tangent_u[0],
-                                dir[1] + u * tangent_u[1],
-                                dir[2] + u * tangent_u[2],
-                            );
-                            let s2 = is_solid(
-                                dir[0] + v * tangent_v[0],
-                                dir[1] + v * tangent_v[1],
-                                dir[2] + v * tangent_v[2],
-                            );
-                            let c = is_solid(
-                                dir[0] + u * tangent_u[0] + v * tangent_v[0],
-                                dir[1] + u * tangent_u[1] + v * tangent_v[1],
-                                dir[2] + u * tangent_u[2] + v * tangent_v[2],
-                            );
-
-                            ao[i] = get_ao_val(s1, s2, c);
-                        }
-
-                        append_face(&mut vertices, pos, normal, block, ao);
-                    }
-                }
-            }
-        }
-    }
-    vertices
-}
-
-fn append_face(
-    vertices: &mut Vec<Vertex>,
-    pos: [f32; 3],
-    normal: [f32; 3],
-    block: BlockType,
-    ao: [f32; 4],
-) {
-    let (u_start, v_start, color) = match block {
-        BlockType::GRASS => {
-            if normal[1] > 0.5 {
-                (0.0, 0.0, [0.47, 0.73, 0.33])
-            }
-            // Top (Green tint)
-            else if normal[1] < -0.5 {
-                (0.5, 0.0, [1.0, 1.0, 1.0])
-            }
-            // Bottom (Dirt)
-            else {
-                (0.5, 0.5, [1.0, 1.0, 1.0])
-            } // Side
-        }
-        BlockType::DIRT => (0.5, 0.0, [1.0, 1.0, 1.0]),
-        BlockType::STONE => (0.0, 0.5, [1.0, 1.0, 1.0]),
-        _ => (0.0, 0.0, [1.0, 1.0, 1.0]),
-    };
-
-    let u_end = u_start + 0.5;
-    let v_end = v_start + 0.5;
-
-    let (v0, v1, v2, v3) = if normal[2] > 0.5 {
-        // Front
-        (
-            [0.0, 0.0, 1.0],
-            [1.0, 0.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [0.0, 1.0, 1.0],
-        )
-    } else if normal[2] < -0.5 {
-        // Back
-        (
-            [1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0],
-        )
-    } else if normal[0] > 0.5 {
-        // Right
-        (
-            [1.0, 0.0, 1.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 1.0, 0.0],
-            [1.0, 1.0, 1.0],
-        )
-    } else if normal[0] < -0.5 {
-        // Left
-        (
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0],
-            [0.0, 1.0, 1.0],
-            [0.0, 1.0, 0.0],
-        )
-    } else if normal[1] > 0.5 {
-        // Top
-        (
-            [0.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 0.0],
-            [0.0, 1.0, 0.0],
-        )
-    } else {
-        // Bottom
-        (
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0],
-        )
-    };
-
-    let tv0 = [u_start, v_end];
-    let tv1 = [u_end, v_end];
-    let tv2 = [u_end, v_start];
-    let tv3 = [u_start, v_start];
-
-    vertices.push(Vertex {
-        position: [pos[0] + v0[0], pos[1] + v0[1], pos[2] + v0[2]],
-        tex_coords: tv0,
-        normal,
-        color,
-        ao: ao[0],
-    });
-    vertices.push(Vertex {
-        position: [pos[0] + v1[0], pos[1] + v1[1], pos[2] + v1[2]],
-        tex_coords: tv1,
-        normal,
-        color,
-        ao: ao[1],
-    });
-    vertices.push(Vertex {
-        position: [pos[0] + v2[0], pos[1] + v2[1], pos[2] + v2[2]],
-        tex_coords: tv2,
-        normal,
-        color,
-        ao: ao[2],
-    });
-
-    vertices.push(Vertex {
-        position: [pos[0] + v0[0], pos[1] + v0[1], pos[2] + v0[2]],
-        tex_coords: tv0,
-        normal,
-        color,
-        ao: ao[0],
-    });
-    vertices.push(Vertex {
-        position: [pos[0] + v2[0], pos[1] + v2[1], pos[2] + v2[2]],
-        tex_coords: tv2,
-        normal,
-        color,
-        ao: ao[2],
-    });
-    vertices.push(Vertex {
-        position: [pos[0] + v3[0], pos[1] + v3[1], pos[2] + v3[2]],
-        tex_coords: tv3,
-        normal,
-        color,
-        ao: ao[3],
-    });
-}
-
-async fn download_assets() -> Result<Vec<u8>, Report> {
-    let client = reqwest::Client::new();
-    let url = "https://piston-data.mojang.com/v1/objects/c9028621e9dccd9b162d33b5188db8518299b792/client.jar";
-    let bytes = client
-        .get(url)
-        .send()
-        .await
-        .map_err(Report::new)?
-        .bytes()
-        .await
-        .map_err(Report::new)?;
-
-    let cursor = std::io::Cursor::new(bytes);
-    let mut archive = zip::ZipArchive::new(cursor).map_err(|e| report!(e))?;
-
-    let texture_paths = [
-        "assets/minecraft/textures/block/grass_block_top.png",
-        "assets/minecraft/textures/block/dirt.png",
-        "assets/minecraft/textures/block/stone.png",
-        "assets/minecraft/textures/block/grass_block_side.png",
-    ];
-
-    let mut images = Vec::new();
-    for path in texture_paths {
-        let mut file = archive.by_name(path).map_err(|e| report!(e))?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .map_err(|e: std::io::Error| report!(e))?;
-        images.push(image::load_from_memory(&buffer).map_err(|e| report!(e))?);
-    }
-
-    // Create 2x2 atlas (32x32 pixels since each is 16x16)
-    let mut atlas = image::RgbaImage::new(32, 32);
-    for (i, img) in images.iter().enumerate() {
-        let x = (i % 2) as u32 * 16;
-        let y = (i / 2) as u32 * 16;
-        image::imageops::replace(&mut atlas, &img.to_rgba8(), x as i64, y as i64);
-    }
-
-    let mut cursor = std::io::Cursor::new(Vec::new());
-    atlas
-        .write_to(&mut cursor, image::ImageFormat::Png)
-        .map_err(Report::new)?;
-    Ok(cursor.into_inner())
-}
-
-pub struct Texture {
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
-}
-
-impl Texture {
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-
-    pub fn from_bytes(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        bytes: &[u8],
-        label: &str,
-    ) -> Result<Self, Report> {
-        let img = image::load_from_memory(bytes).map_err(Report::new)?;
-        Self::from_image(device, queue, &img, Some(label))
-    }
-
-    pub fn from_image(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        img: &image::DynamicImage,
-        label: Option<&str>,
-    ) -> Result<Self, Report> {
-        let rgba = img.to_rgba8();
-        let dimensions = img.dimensions();
-
-        let size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                aspect: wgpu::TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
-            size,
-        );
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
-
-        Ok(Self {
-            texture,
-            view,
-            sampler,
-        })
-    }
-
-    pub fn create_depth_texture(
-        device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        label: &str,
-    ) -> Self {
-        let size = wgpu::Extent3d {
-            width: config.width,
-            height: config.height,
-            depth_or_array_layers: 1,
-        };
-        let desc = wgpu::TextureDescriptor {
-            label: Some(label),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        };
-        let texture = device.create_texture(&desc);
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 100.0,
-            ..Default::default()
-        });
-
-        Self {
-            texture,
-            view,
-            sampler,
-        }
+    fn render(&mut self) {
+        // Implement Vulkan rendering here
     }
 }
 
 struct App {
+    window: Option<Arc<dyn Window>>,
     state: Option<State>,
     minimized: bool,
     focused: bool,
@@ -1693,39 +1087,86 @@ struct App {
 impl App {
     fn new() -> Self {
         Self {
+            window: None,
             state: None,
             minimized: false,
             focused: true,
         }
     }
+
+    fn init(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+        println!("Creating window...");
+        std::io::stdout().flush().unwrap();
+
+        let window_attributes = WindowAttributes::default()
+            .with_title("Craft")
+            .with_visible(true);
+
+        let window = match event_loop.create_window(window_attributes) {
+            Ok(w) => Arc::from(w),
+            Err(e) => {
+                eprintln!("Failed to create window: {:?}", e);
+                event_loop.exit();
+                return;
+            }
+        };
+
+        self.window = Some(window);
+    }
+
+    fn ensure_state(&mut self) -> bool {
+        if self.state.is_some() {
+            return true;
+        }
+        if let Some(window) = &self.window {
+            println!("Initializing Vulkan state...");
+            std::io::stdout().flush().unwrap();
+            match State::new(window.clone()) {
+                Ok(state) => {
+                    println!("State initialized successfully");
+                    std::io::stdout().flush().unwrap();
+                    state.window().set_cursor_visible(!state.mouse_locked);
+                    let grab_mode = if state.mouse_locked {
+                        winit::window::CursorGrabMode::Locked
+                    } else {
+                        winit::window::CursorGrabMode::None
+                    };
+                    let _ = state.window().set_cursor_grab(grab_mode);
+                    self.state = Some(state);
+                    return true;
+                }
+                Err(e) => {
+                    eprintln!("Failed to initialize state: {}", e);
+                    std::io::stdout().flush().unwrap();
+                    return false;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl ApplicationHandler for App {
-    fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
-        let window = event_loop
-            .create_window(WindowAttributes::default())
-            .unwrap();
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .unwrap();
-        match rt.block_on(State::new(window)) {
-            Ok(state) => {
-                state.window().set_cursor_visible(!state.mouse_locked);
-                let grab_mode = if state.mouse_locked {
-                    winit::window::CursorGrabMode::Locked
-                } else {
-                    winit::window::CursorGrabMode::None
-                };
-                let _ = state.window().set_cursor_grab(grab_mode);
-                self.state = Some(state);
-            }
-            Err(e) => {
-                eprintln!("{}", e);
-                event_loop.exit();
-            }
+    fn new_events(&mut self, _event_loop: &dyn ActiveEventLoop, cause: StartCause) {
+        if matches!(cause, StartCause::Init) {
+            println!("new_events called: {:?}", cause);
+            std::io::stdout().flush().unwrap();
         }
+    }
+
+    fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
+        println!("can_create_surfaces called");
+        std::io::stdout().flush().unwrap();
+        self.init(event_loop);
+    }
+
+    fn resumed(&mut self, event_loop: &dyn ActiveEventLoop) {
+        println!("resumed called");
+        std::io::stdout().flush().unwrap();
+        self.init(event_loop);
     }
 
     fn window_event(
@@ -1734,88 +1175,89 @@ impl ApplicationHandler for App {
         _id: WindowId,
         event: WindowEvent,
     ) {
-        if let Some(state) = &mut self.state {
-            if !state.input(&event) {
-                match event {
-                    WindowEvent::CloseRequested => event_loop.exit(),
-                    WindowEvent::Focused(focused) => {
-                        self.focused = focused;
-                        if focused && state.mouse_locked {
-                            let _ = state
-                                .window()
-                                .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                                .or_else(|_| {
-                                    state
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::RedrawRequested => {
+                if !self.minimized && self.ensure_state() {
+                    if let Some(state) = &mut self.state {
+                        state.update();
+                        state.render();
+                    }
+                }
+            }
+            _ => {
+                if let Some(state) = &mut self.state {
+                    if !state.input(&event) {
+                        match event {
+                            WindowEvent::Focused(focused) => {
+                                self.focused = focused;
+                                if focused && state.mouse_locked {
+                                    let _ = state
                                         .window()
-                                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                                });
-                            state.window().set_cursor_visible(false);
-                        }
-                    }
-                    WindowEvent::Occluded(occluded) => {
-                        self.minimized = occluded;
-                    }
-                    WindowEvent::KeyboardInput {
-                        event:
-                            KeyEvent {
-                                state: ElementState::Pressed,
-                                logical_key:
-                                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape),
-                                ..
-                            },
-                        ..
-                    } => {
-                        state.mouse_locked = !state.mouse_locked;
-                        state.window().set_cursor_visible(!state.mouse_locked);
-                        let grab_mode = if state.mouse_locked {
-                            winit::window::CursorGrabMode::Locked
-                        } else {
-                            winit::window::CursorGrabMode::None
-                        };
-                        let _ = state.window().set_cursor_grab(grab_mode).or_else(|_| {
-                            state
-                                .window()
-                                .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                        });
-                    }
-                    WindowEvent::PointerButton {
-                        state: ElementState::Pressed,
-                        button: ButtonSource::Mouse(MouseButton::Left),
-                        ..
-                    } => {
-                        if !state.mouse_locked {
-                            state.mouse_locked = true;
-                            state.window().set_cursor_visible(false);
-                            let _ = state
-                                .window()
-                                .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                                .or_else(|_| {
-                                    state
-                                        .window()
-                                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                                });
-                        }
-                    }
-                    WindowEvent::SurfaceResized(physical_size) => {
-                        if physical_size.width == 0 || physical_size.height == 0 {
-                            self.minimized = true;
-                        } else {
-                            self.minimized = false;
-                            state.resize(physical_size);
-                        }
-                    }
-                    WindowEvent::RedrawRequested => {
-                        if !self.minimized {
-                            state.update();
-                            match state.render() {
-                                Ok(_) => {}
-                                Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
-                                Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
-                                Err(e) => eprintln!("{:?}", e),
+                                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+                                        .or_else(|_| {
+                                            state
+                                                .window()
+                                                .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                                        });
+                                    state.window().set_cursor_visible(false);
+                                }
                             }
+                            WindowEvent::Occluded(occluded) => {
+                                self.minimized = occluded;
+                            }
+                            WindowEvent::KeyboardInput {
+                                event:
+                                    KeyEvent {
+                                        state: ElementState::Pressed,
+                                        logical_key:
+                                            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape),
+                                        ..
+                                    },
+                                ..
+                            } => {
+                                state.mouse_locked = !state.mouse_locked;
+                                state.window().set_cursor_visible(!state.mouse_locked);
+                                let grab_mode = if state.mouse_locked {
+                                    winit::window::CursorGrabMode::Locked
+                                } else {
+                                    winit::window::CursorGrabMode::None
+                                };
+                                let _ = state.window().set_cursor_grab(grab_mode).or_else(|_| {
+                                    state
+                                        .window()
+                                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                                });
+                            }
+                            WindowEvent::PointerButton {
+                                state: ElementState::Pressed,
+                                button: ButtonSource::Mouse(MouseButton::Left),
+                                ..
+                            } => {
+                                if !state.mouse_locked {
+                                    state.mouse_locked = true;
+                                    state.window().set_cursor_visible(false);
+                                    let _ = state
+                                        .window()
+                                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+                                        .or_else(|_| {
+                                            state
+                                                .window()
+                                                .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+                                        });
+                                }
+                            }
+                            WindowEvent::SurfaceResized(physical_size) => {
+                                if physical_size.width == 0 || physical_size.height == 0 {
+                                    self.minimized = true;
+                                } else {
+                                    self.minimized = false;
+                                    state.resize(physical_size);
+                                }
+                            }
+                            _ => {}
                         }
                     }
-                    _ => {}
                 }
             }
         }
@@ -1837,26 +1279,23 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, _event_loop: &dyn ActiveEventLoop) {
-        if let Some(state) = &self.state {
+        if let Some(window) = &self.window {
             if !self.minimized {
-                state.window().request_redraw();
-                if state.mouse_locked {
-                    let _ = state.window().set_cursor_position(
-                        winit::dpi::PhysicalPosition::new(
-                            state.size.width / 2,
-                            state.size.height / 2,
-                        )
-                        .into(),
-                    );
-                }
+                window.request_redraw();
             }
         }
     }
 }
 
 fn main() {
+    println!("Main starting...");
+    std::io::stdout().flush().unwrap();
     tracing_subscriber::fmt::init();
+    println!("EventLoop creating...");
+    std::io::stdout().flush().unwrap();
     let event_loop = EventLoop::new().unwrap();
-    let app = Box::leak(Box::new(App::new()));
+    let app = App::new();
+    println!("Running app...");
+    std::io::stdout().flush().unwrap();
     event_loop.run_app(app).unwrap();
 }

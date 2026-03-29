@@ -1,0 +1,8 @@
+constraint(
+    name = "build-mode",
+    values = [
+        "debug",
+        "release",
+    ],
+    default = "debug",
+)

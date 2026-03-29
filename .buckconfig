@@ -1,8 +1,9 @@
 [cells]
   root = .
   prelude = prelude
-  toolchains = toolchains
-  third-party = third-party
+  toolchains = buck/toolchains
+  third-party = buck/third-party
+  mode = buck/mode
   none = none
 
 [cell_aliases]
@@ -25,7 +26,6 @@
   execution_platforms = prelude//platforms:default
 
 [buck2]
-file_watcher = watchman
 test_builds_targets = true
 digest_algorithms = SHA256
 log_total_configured_graph_sketch = true

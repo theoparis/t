@@ -2,6 +2,7 @@ rust_binary(
     name = "craft",
     srcs = [
         "main.rs",
+        "vulkan_bindings.rs",
         "shader.wgsl",
     ],
     deps = [
@@ -23,10 +24,17 @@ rust_binary(
         "third-party//rust:bytemuck",
         "third-party//rust:glam",
         "third-party//rust:zip",
-        "third-party//rust:zstd",
+        "third-party//rust:lz4_flex",
         "third-party//rust:rustls-graviola",
         "third-party//rust:tracing",
         "third-party//rust:tracing-subscriber",
+        "third-party//rust:objc2",
+        "third-party//rust:objc2-app-kit",
+        "third-party//rust:objc2-quartz-core",
+    ],
+    rustc_flags = [
+        "-L/Users/theo/VulkanSDK/1.4.341.1/macOS/lib",
+        "-lvulkan",
     ],
     visibility = ["PUBLIC"],
 )

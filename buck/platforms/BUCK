@@ -1,0 +1,14 @@
+load(":defs.bzl", "generate_platforms", "default_platforms")
+
+generate_platforms(default_platforms)
+
+[
+    platform(
+        name = f'{arch}-{name}',
+        deps = [ ':default' ],
+        constraint_values = [
+            f'toolchains//cfg/target:target[{arch}-unknown-{name}]',
+        ],
+    ) for name in [ 'linux-gnu', 'uefi' ]
+      for arch in [ 'aarch64', 'x86_64' ]
+]

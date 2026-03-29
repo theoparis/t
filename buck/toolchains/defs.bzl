@@ -1,3 +1,11 @@
+# SPDX-FileCopyrightText: © 2024-2026 Austin Seipp, Meta Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# NOTE (aseipp): this is just a copy of the system_cxx_toolchain rule from the
+# buck2 prelude, but patched to remove a forced use of `-fuse-ld=lld` for the
+# linker, since that doesn't work when linking UEFI binaries via rust's
+# `unknown-uefi` toolchains.
+
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "BinaryUtilitiesInfo",
@@ -7,11 +15,11 @@ load(
     "CxxInternalTools",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
-    "DepTrackingMode",
     "LinkerInfo",
     "LinkerType",
     "PicBehavior",
     "RcCompilerInfo",
+    "RuntimeDependencyHandling",
     "ShlibInterfacesMode",
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
@@ -46,7 +54,7 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         asm_compiler_type = default_toolchain.asm_compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
+        archiver = default_toolchain.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -61,7 +69,7 @@ def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_
         asm_compiler_type = default_toolchain.asm_compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
+        archiver = default_toolchain.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -87,7 +95,6 @@ def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
 def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo, target_name = "x86_64"):
     os = ctx.attrs._target_os_type[OsLookup].os
     archiver_supports_argfiles = os != Os("macos")
-    additional_linker_flags = ["--ld-path=wild"] if os == Os("linux") else ["-fuse-ld=lld"]
 
     if os == Os("windows"):
         linker_type = LinkerType("windows")
@@ -118,26 +125,13 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     else:
         llvm_link = None
 
-    supports_two_phase_compilation = False
-    if hasattr(ctx.attrs, "supports_two_phase_compilation"):
-        supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation
-
-    if cxx_tools_info.compiler_type == "clang" or cxx_tools_info.compiler_type == "clang_cl" or cxx_tools_info.compiler_type == "clang_windows":
-        cpp_dep_tracking_mode = DepTrackingMode("show_headers")
-    elif cxx_tools_info.compiler_type == "windows":
-        cpp_dep_tracking_mode = DepTrackingMode("show_includes")
-    elif cxx_tools_info.compiler_type == "gcc":
-        cpp_dep_tracking_mode = DepTrackingMode("makefile")
-    else:
-        cpp_dep_tracking_mode = DepTrackingMode("none")
-
     return [
         DefaultInfo(),
         CxxToolchainInfo(
-            internal_tools = ctx.attrs.internal_tools[CxxInternalTools],
+            internal_tools = ctx.attrs._internal_tools[CxxInternalTools],
             linker_info = LinkerInfo(
                 linker = _run_info(cxx_tools_info.linker),
-                linker_flags = additional_linker_flags + ctx.attrs.link_flags,
+                linker_flags = ctx.attrs.link_flags,
                 post_linker_flags = ctx.attrs.post_link_flags,
                 archiver = _run_info(cxx_tools_info.archiver),
                 archiver_type = cxx_tools_info.archiver_type,
@@ -167,6 +161,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 link_ordering = ctx.attrs.link_ordering,
             ),
             bolt_enabled = False,
+            runtime_dependency_handling = RuntimeDependencyHandling("no_symlink"),
             binary_utilities_info = BinaryUtilitiesInfo(
                 nm = RunInfo(args = ["nm"]),
                 objcopy = RunInfo(args = ["objcopy"]),
@@ -181,15 +176,12 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
-                supports_two_phase_compilation = supports_two_phase_compilation,
-                supports_content_based_paths = ctx.attrs.supports_content_based_paths,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.c_flags,
                 compiler_type = cxx_tools_info.compiler_type,
-                supports_content_based_paths = ctx.attrs.supports_content_based_paths,
             ),
             as_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
@@ -212,10 +204,9 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 compiler_type = cxx_tools_info.compiler_type,
             ),
             header_mode = HeaderMode("symlink_tree_only"),
-            cpp_dep_tracking_mode = cpp_dep_tracking_mode,
+            cpp_dep_tracking_mode = ctx.attrs.cpp_dep_tracking_mode,
             pic_behavior = pic_behavior,
             llvm_link = llvm_link,
-            use_dep_files = True,
         ),
         CxxPlatformInfo(name = target_name),
     ]
@@ -226,43 +217,61 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
-        "archiver": attrs.option(attrs.string(), default = None),
-        "c_flags": attrs.list(attrs.arg(), default = []),
+        "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None),  # one of CxxToolProviderType
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_compiler": attrs.option(attrs.string(), default = None),
-        "cvtres_flags": attrs.list(attrs.arg(), default = []),
+        "cvtres_flags": attrs.list(attrs.string(), default = []),
         "cxx_compiler": attrs.option(attrs.string(), default = None),
-        "cxx_flags": attrs.list(attrs.arg(), default = []),
-        "internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
-        "link_flags": attrs.list(attrs.arg(), default = []),
+        "cxx_flags": attrs.list(attrs.string(), default = []),
+        "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.option(attrs.string(), default = None),
-        "post_link_flags": attrs.list(attrs.arg(), default = []),
+        "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_compiler": attrs.option(attrs.string(), default = None),
-        "rc_flags": attrs.list(attrs.arg(), default = []),
-        "supports_content_based_paths": attrs.bool(default = False),
-        "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
+        "rc_flags": attrs.list(attrs.string(), default = []),
+        "_cxx_tools_info": attrs.exec_dep(
+            providers = [CxxToolsInfo],
+            default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "toolchains//cxx/clang:path_clang_tools"
+        ),
+        "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,
 )
 
+def _path_clang_tools_impl(_ctx) -> list[Provider]:
+    return [
+        DefaultInfo(),
+        CxxToolsInfo(
+            compiler = "clang",
+            compiler_type = "clang",
+            cxx_compiler = "clang++",
+            asm_compiler = "clang",
+            asm_compiler_type = "clang",
+            rc_compiler = None,
+            cvtres_compiler = None,
+            archiver = "ar",
+            archiver_type = "gnu",
+            linker = "clang++",
+            linker_type = LinkerType("gnu"),
+        ),
+    ]
+
 cxx_tools_info_toolchain = rule(
     impl = _cxx_tools_info_toolchain_impl,
     attrs = {
-        "c_flags": attrs.list(attrs.arg(), default = []),
+        "c_flags": attrs.list(attrs.string(), default = []),
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
-        "cvtres_flags": attrs.list(attrs.arg(), default = []),
-        "cxx_flags": attrs.list(attrs.arg(), default = []),
+        "cvtres_flags": attrs.list(attrs.string(), default = []),
+        "cxx_flags": attrs.list(attrs.string(), default = []),
         "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
             "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
             "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
         })),
-        "internal_tools": attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
-        "link_flags": attrs.list(attrs.arg(), default = []),
+        "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.enum(
             LinkStyle.values(),
@@ -271,89 +280,15 @@ cxx_tools_info_toolchain = rule(
             The default value of the `link_style` attribute for rules that use this toolchain.
             """,
         ),
-        "post_link_flags": attrs.list(attrs.arg(), default = []),
-        "rc_flags": attrs.list(attrs.arg(), default = []),
-        "supports_content_based_paths": attrs.bool(default = False),
-        "_target_os_type": buck.target_os_type_arg(),
-    },
-    is_toolchain_rule = True,
-)
-def _gravity_cxx_toolchain_impl(ctx: AnalysisContext):
-    os = ctx.attrs._target_os_type[OsLookup].os.value
-    arch_name = ctx.attrs._target_os_type[OsLookup].cpu
-    cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
-
-    linker = cxx_tools_info.linker
-    if ctx.attrs.linker_executable:
-        linker = ctx.attrs.linker_executable[DefaultInfo].default_outputs[0]
-
-    cxx_tools_info = CxxToolsInfo(
-        archiver = cxx_tools_info.archiver,
-        archiver_type = cxx_tools_info.archiver_type,
-        asm_compiler = cxx_tools_info.asm_compiler,
-        asm_compiler_type = cxx_tools_info.asm_compiler_type,
-        compiler = cxx_tools_info.compiler,
-        compiler_type = cxx_tools_info.compiler_type,
-        cvtres_compiler = cxx_tools_info.cvtres_compiler,
-        cxx_compiler = cxx_tools_info.cxx_compiler,
-        linker = linker,
-        linker_type = cxx_tools_info.linker_type,
-        rc_compiler = cxx_tools_info.rc_compiler,
-    )
-
-    target_name = os
-    if arch_name:
-        target_name += "-" + arch_name
-
-    return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info, target_name)
-
-gravity_cxx_toolchain = rule(
-    impl = _gravity_cxx_toolchain_impl,
-    attrs = {
-        "linker_executable": attrs.option(attrs.exec_dep(), default = None),
-        "c_flags": attrs.list(attrs.arg(), default = []),
-        "cxx_flags": attrs.list(attrs.arg(), default = []),
-        "link_flags": attrs.list(attrs.arg(), default = []),
-        "post_link_flags": attrs.list(attrs.arg(), default = []),
-        "link_style": attrs.string(default = "shared"),
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "rc_flags": attrs.list(attrs.arg(), default = []),
-        "cvtres_flags": attrs.list(attrs.arg(), default = []),
-        "internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
-        "supports_content_based_paths": attrs.bool(default = False),
-        "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo]),
+        "post_link_flags": attrs.list(attrs.string(), default = []),
+        "rc_flags": attrs.list(attrs.string(), default = []),
+        "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,
 )
 
-def _gravity_cxx_tools_impl(ctx: AnalysisContext):
-    return [
-        DefaultInfo(),
-        CxxToolsInfo(
-            archiver = ctx.attrs.archiver,
-            archiver_type = ctx.attrs.archiver_type,
-            asm_compiler = ctx.attrs.asm_compiler,
-            asm_compiler_type = ctx.attrs.asm_compiler_type,
-            compiler = ctx.attrs.compiler,
-            compiler_type = ctx.attrs.compiler_type,
-            cxx_compiler = ctx.attrs.cxx_compiler,
-            linker = ctx.attrs.linker,
-            linker_type = LinkerType(ctx.attrs.linker_type),
-        )
-    ]
-
-gravity_cxx_tools = rule(
-    impl = _gravity_cxx_tools_impl,
-    attrs = {
-        "archiver": attrs.string(default = "ar"),
-        "archiver_type": attrs.string(default = "gnu"),
-        "asm_compiler": attrs.string(default = "clang"),
-        "asm_compiler_type": attrs.string(default = "clang"),
-        "compiler": attrs.string(default = "clang"),
-        "compiler_type": attrs.string(default = "clang"),
-        "cxx_compiler": attrs.string(default = "clang++"),
-        "linker": attrs.string(default = "clang++"),
-        "linker_type": attrs.string(default = "gnu"),
-    }
+path_clang_tools = rule(
+    impl = _path_clang_tools_impl,
+    attrs = {},
 )

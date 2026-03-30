@@ -1,0 +1,22 @@
+vulkan_headers = [
+    "include/vulkan/vk_platform.h",
+    "include/vulkan/vulkan.h",
+    "include/vulkan/vulkan_core.h",
+    "include/vulkan/vulkan_macros.h",
+    "include/vk_video/vulkan_video_codec_h264_std.h",
+    "include/vk_video/vulkan_video_codec_h264_std_decode.h",
+    "include/vk_video/vulkan_video_codec_h264_std_encode.h",
+    "include/vk_video/vulkan_video_codec_h265_std.h",
+    "include/vk_video/vulkan_video_codec_h265_std_decode.h",
+    "include/vk_video/vulkan_video_codec_h265_std_encode.h",
+    "include/vk_video/vulkan_video_codecs_common_std.h",
+]
+
+http_archive(
+    name = "vulkan-headers",
+    sha256 = "6611f09ed95aaf2c47ad76df9fb3e5455ce52d1ed3d0ef5dbc0d63e3208d3faa",
+    strip_prefix = "Vulkan-Headers-1.4.347",
+    urls = ["https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.347.tar.gz"],
+    sub_targets = vulkan_headers,
+    visibility = ["PUBLIC"],
+)

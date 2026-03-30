@@ -1,8 +1,14 @@
+genrule(
+    name = "vulkan_bindings_gen",
+    out = "vulkan_bindings.rs",
+    cmd = "bindgen $(location third-party//vulkan:vulkan-headers)/include/vulkan/vulkan.h -o $OUT --default-enum-style rust --bitfield-enum \".*Flags\" --allowlist-function \"vk.*\" --allowlist-type \"Vk.*\" --allowlist-var \"VK_.*\" -- -I$(location third-party//vulkan:vulkan-headers)/include -DVK_USE_PLATFORM_MACOS_MVK -DVK_USE_PLATFORM_METAL_EXT -DVK_ENABLE_BETA_EXTENSIONS",
+)
+
 rust_binary(
     name = "craft",
     srcs = [
         "main.rs",
-        "vulkan_bindings.rs",
+        ":vulkan_bindings_gen",
         "shader.wgsl",
     ],
     deps = [

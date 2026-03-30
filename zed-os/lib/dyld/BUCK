@@ -1,0 +1,19 @@
+export_file(name = "linker.ld")
+
+rust_binary(
+    name = "dyld",
+    srcs = [
+        "src/cache.rs",
+        "src/main.rs",
+        "linker.ld",
+    ],
+    deps = [
+        "//zed-os/lib/loader:loader",
+        "third-party//rust:linked_list_allocator",
+        "third-party//rust:goblin",
+    ],
+    linker_flags = [
+        "-T$(location :linker.ld)",
+    ],
+    visibility = ["PUBLIC"],
+)

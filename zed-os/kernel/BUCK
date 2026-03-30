@@ -1,0 +1,47 @@
+load("@prelude//platforms:defs.bzl", "execution_platform", "host_configuration")
+
+export_file(name = "linker.ld")
+
+rust_binary(
+    name = "kernel",
+    srcs = [
+        "linker.ld",
+        "src/binary_loader.rs",
+        "src/block.rs",
+        "src/boot.s",
+        "src/dummy.rs",
+        "src/heap.rs",
+        "src/hfsfs.rs",
+        "src/ipc.rs",
+        "src/main.rs",
+        "src/mem.rs",
+        "src/mmu.rs",
+        "src/process.rs",
+        "src/scheduler.rs",
+        "src/switch.s",
+        "src/uart.rs",
+        "src/vectors.s",
+        "src/vfs.rs",
+        "src/virtio.rs",
+        "src/zalloc.rs",
+    ],
+    deps = [
+        "//zed-os/lib/apple-dmg:apple-dmg",
+        "//zed-os/lib/hfsplus:hfsplus",
+        "third-party//rust:binrw",
+        "third-party//rust:goblin",
+        "third-party//rust:linked_list_allocator",
+        "third-party//rust:rand_chacha",
+        "third-party//rust:rand_core",
+        "third-party//rust:spin",
+        "third-party//rust:lz4_flex",
+    ],
+    rustc_flags = [
+        "-C", "target-cpu=generic",
+        "-C", "relocation-model=static",
+    ],
+    linker_flags = [
+        "-T$(location :linker.ld)",
+    ],
+    visibility = ["PUBLIC"],
+)

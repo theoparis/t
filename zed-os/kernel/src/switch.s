@@ -19,6 +19,12 @@ __switch_to:
     str x9,  [x0, #88] /* sp at index 11 */
     str x30, [x0, #96] /* x30 at index 12 */
 
+    /* Save SIMD/FP callee-saved (q8-q15) at offset 112 (needs 128 bytes) */
+    stp q8,  q9,  [x0, #112 + 32 * 0]
+    stp q10, q11, [x0, #112 + 32 * 1]
+    stp q12, q13, [x0, #112 + 32 * 2]
+    stp q14, q15, [x0, #112 + 32 * 3]
+
     /* Restore next context */
     ldr x19, [x1, #0]
     ldr x20, [x1, #8]
@@ -34,6 +40,12 @@ __switch_to:
     ldr x9,  [x1, #88]
     mov sp, x9
     ldr x30, [x1, #96]
+
+    /* Restore SIMD/FP callee-saved (q8-q15) */
+    ldp q8,  q9,  [x1, #112 + 32 * 0]
+    ldp q10, q11, [x1, #112 + 32 * 1]
+    ldp q12, q13, [x1, #112 + 32 * 2]
+    ldp q14, q15, [x1, #112 + 32 * 3]
 
     ret
 

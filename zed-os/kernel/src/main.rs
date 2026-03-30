@@ -20,6 +20,7 @@ mod zalloc;
 
 use crate::scheduler::{Process, SCHEDULER};
 use alloc::string::String;
+use alloc::sync::Arc;
 use core::arch::asm;
 use core::arch::global_asm;
 use core::panic::PanicInfo;
@@ -93,7 +94,7 @@ pub extern "C" fn kmain() {
             hfsfs::HfsFs::new(blk_shared, 400 * 1024 * 1024)
         };
 
-        vfs::init(alloc::boxed::Box::new(hfsfs));
+        vfs::init(Arc::new(hfsfs));
         kprintln!("VFS initialized");
         load_and_map_shared_cache();
     } else {
@@ -492,7 +493,7 @@ fn load_and_map_shared_cache() {
     kprintln!("Shared cache mapped successfully.");
 }
 
-#[cfg(not(test), panic_handler)]
+#[cfg_attr(not(test), panic_handler)]
 fn panic(info: &PanicInfo) -> ! {
     kprintln!("Kernel Panic: {:?}", info);
     loop {

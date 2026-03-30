@@ -63,36 +63,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "ahash-0.8.12.crate",
-    sha256 = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75",
-    strip_prefix = "ahash-0.8.12",
-    urls = ["https://static.crates.io/crates/ahash/0.8.12/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "ahash-0.8.12",
-    srcs = [":ahash-0.8.12.crate"],
-    crate = "ahash",
-    crate_root = "ahash-0.8.12.crate/src/lib.rs",
-    edition = "2018",
-    features = [
-        "default",
-        "getrandom",
-        "no-rng",
-        "runtime-rng",
-        "std",
-    ],
-    visibility = [],
-    deps = [
-        ":cfg-if-1.0.4",
-        ":getrandom-0.3.4",
-        ":once_cell-1.21.4",
-        ":zerocopy-0.8.48",
-    ],
-)
-
-http_archive(
     name = "allocator-api2-0.2.21.crate",
     sha256 = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923",
     strip_prefix = "allocator-api2-0.2.21",
@@ -559,12 +529,6 @@ cargo.rust_library(
                 "std",
             ],
         ),
-        "macos-x86_64": dict(
-            features = [
-                "default",
-                "std",
-            ],
-        ),
     },
     visibility = [],
     deps = [":objc2-0.6.4"],
@@ -672,10 +636,7 @@ cargo.rust_library(
     crate = "byteorder",
     crate_root = "byteorder-1.5.0.crate/src/lib.rs",
     edition = "2021",
-    features = [
-        "default",
-        "std",
-    ],
+    features = ["std"],
     visibility = [],
 )
 
@@ -719,53 +680,6 @@ cargo.rust_library(
         "std",
     ],
     visibility = [],
-)
-
-http_archive(
-    name = "calloop-0.14.4.crate",
-    sha256 = "4dbf9978365bac10f54d1d4b04f7ce4427e51f71d61f2fe15e3fed5166474df7",
-    strip_prefix = "calloop-0.14.4",
-    urls = ["https://static.crates.io/crates/calloop/0.14.4/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "calloop-0.14.4",
-    srcs = [":calloop-0.14.4.crate"],
-    crate = "calloop",
-    crate_root = "calloop-0.14.4.crate/src/lib.rs",
-    edition = "2018",
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":polling-3.11.0",
-        ":rustix-1.1.4",
-        ":slab-0.4.12",
-        ":tracing-0.1.44",
-    ],
-)
-
-http_archive(
-    name = "calloop-wayland-source-0.4.1.crate",
-    sha256 = "138efcf0940a02ebf0cc8d1eff41a1682a46b431630f4c52450d6265876021fa",
-    strip_prefix = "calloop-wayland-source-0.4.1",
-    urls = ["https://static.crates.io/crates/calloop-wayland-source/0.4.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "calloop-wayland-source-0.4.1",
-    srcs = [":calloop-wayland-source-0.4.1.crate"],
-    crate = "calloop_wayland_source",
-    crate_root = "calloop-wayland-source-0.4.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":calloop-0.14.4",
-        ":rustix-1.1.4",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-    ],
 )
 
 alias(
@@ -861,23 +775,8 @@ cargo.rust_library(
         "windows-link",
     ],
     platform = {
-        "linux-arm64": dict(
-            deps = [":iana-time-zone-0.1.65"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":iana-time-zone-0.1.65"],
-        ),
         "macos-arm64": dict(
             deps = [":iana-time-zone-0.1.65"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":iana-time-zone-0.1.65"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-link-0.2.1"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-link-0.2.1"],
         ),
     },
     visibility = [],
@@ -1094,20 +993,6 @@ cargo.rust_library(
         "std",
         "unicode-width",
     ],
-    platform = {
-        "windows-gnu": dict(
-            deps = [
-                ":encode_unicode-1.0.0",
-                ":windows-sys-0.61.2",
-            ],
-        ),
-        "windows-msvc": dict(
-            deps = [
-                ":encode_unicode-1.0.0",
-                ":windows-sys-0.61.2",
-            ],
-        ),
-    },
     visibility = [],
     deps = [
         ":libc-0.2.183",
@@ -1211,9 +1096,6 @@ cargo.rust_library(
     crate_root = "cpufeatures-0.2.17.crate/src/lib.rs",
     edition = "2018",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
         ),
@@ -1236,9 +1118,6 @@ cargo.rust_library(
     crate_root = "cpufeatures-0.3.0.crate/src/lib.rs",
     edition = "2024",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
         ),
@@ -1684,14 +1563,6 @@ cargo.rust_library(
     features = ["default"],
     named_deps = {
         "wasmtime_jit_icache_coherence": ":wasmtime-internal-jit-icache-coherence-43.0.0",
-    },
-    platform = {
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
     },
     visibility = [],
     deps = [
@@ -2243,13 +2114,6 @@ cargo.rust_library(
             ],
             deps = [":bitflags-2.11.0"],
         ),
-        "macos-x86_64": dict(
-            features = [
-                "alloc",
-                "std",
-            ],
-            deps = [":bitflags-2.11.0"],
-        ),
     },
     visibility = [],
     deps = [":objc2-0.6.4"],
@@ -2279,24 +2143,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "dlib-0.5.3.crate",
-    sha256 = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a",
-    strip_prefix = "dlib-0.5.3",
-    urls = ["https://static.crates.io/crates/dlib/0.5.3/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "dlib-0.5.3",
-    srcs = [":dlib-0.5.3.crate"],
-    crate = "dlib",
-    crate_root = "dlib-0.5.3.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":libloading-0.8.9"],
-)
-
-http_archive(
     name = "document-features-0.2.12.crate",
     sha256 = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61",
     strip_prefix = "document-features-0.2.12",
@@ -2314,27 +2160,6 @@ cargo.rust_library(
     proc_macro = True,
     visibility = [],
     deps = [":litrs-1.0.0"],
-)
-
-http_archive(
-    name = "downcast-rs-1.2.1.crate",
-    sha256 = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2",
-    strip_prefix = "downcast-rs-1.2.1",
-    urls = ["https://static.crates.io/crates/downcast-rs/1.2.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "downcast-rs-1.2.1",
-    srcs = [":downcast-rs-1.2.1.crate"],
-    crate = "downcast_rs",
-    crate_root = "downcast-rs-1.2.1.crate/src/lib.rs",
-    edition = "2015",
-    features = [
-        "default",
-        "std",
-    ],
-    visibility = [],
 )
 
 http_archive(
@@ -2389,32 +2214,15 @@ cargo.rust_library(
     crate = "either",
     crate_root = "either-1.15.0.crate/src/lib.rs",
     edition = "2021",
-    features = [
-        "default",
-        "std",
-        "use_std",
-    ],
-    visibility = [],
-)
-
-http_archive(
-    name = "encode_unicode-1.0.0.crate",
-    sha256 = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0",
-    strip_prefix = "encode_unicode-1.0.0",
-    urls = ["https://static.crates.io/crates/encode_unicode/1.0.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "encode_unicode-1.0.0",
-    srcs = [":encode_unicode-1.0.0.crate"],
-    crate = "encode_unicode",
-    crate_root = "encode_unicode-1.0.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "default",
-        "std",
-    ],
+    platform = {
+        "macos-arm64": dict(
+            features = [
+                "default",
+                "std",
+                "use_std",
+            ],
+        ),
+    },
     visibility = [],
 )
 
@@ -2457,23 +2265,8 @@ cargo.rust_library(
     edition = "2018",
     features = ["std"],
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
@@ -2966,23 +2759,8 @@ cargo.rust_library(
     crate_root = "getrandom-0.3.4.crate/src/lib.rs",
     edition = "2021",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            features = ["std"],
-        ),
-        "windows-msvc": dict(
-            features = ["std"],
         ),
     },
     visibility = [],
@@ -3010,16 +2788,7 @@ cargo.rust_library(
     crate_root = "getrandom-0.4.2.crate/src/lib.rs",
     edition = "2024",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
             deps = [":libc-0.2.183"],
         ),
     },
@@ -3083,40 +2852,6 @@ cargo.rust_library(
     ],
     visibility = [],
     deps = [":bytemuck-1.25.0"],
-)
-
-http_archive(
-    name = "glow-0.17.0.crate",
-    sha256 = "29038e1c483364cc6bb3cf78feee1816002e127c331a1eec55a4d202b9e1adb5",
-    strip_prefix = "glow-0.17.0",
-    urls = ["https://static.crates.io/crates/glow/0.17.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "glow-0.17.0",
-    srcs = [":glow-0.17.0.crate"],
-    crate = "glow",
-    crate_root = "glow-0.17.0.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-)
-
-http_archive(
-    name = "glutin_wgl_sys-0.6.1.crate",
-    sha256 = "2c4ee00b289aba7a9e5306d57c2d05499b2e5dc427f84ac708bd2c090212cf3e",
-    strip_prefix = "glutin_wgl_sys-0.6.1",
-    urls = ["https://static.crates.io/crates/glutin_wgl_sys/0.6.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "glutin_wgl_sys-0.6.1",
-    srcs = [":glutin_wgl_sys-0.6.1.crate"],
-    crate = "glutin_wgl_sys",
-    crate_root = "glutin_wgl_sys-0.6.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
 )
 
 alias(
@@ -3316,9 +3051,13 @@ cargo.rust_library(
     crate = "hashbrown",
     crate_root = "hashbrown-0.15.5.crate/src/lib.rs",
     edition = "2021",
-    features = ["default-hasher"],
+    platform = {
+        "macos-arm64": dict(
+            features = ["default-hasher"],
+            deps = [":foldhash-0.1.5"],
+        ),
+    },
     visibility = [],
-    deps = [":foldhash-0.1.5"],
 )
 
 alias(
@@ -3808,15 +3547,8 @@ cargo.rust_library(
     crate_root = "iana-time-zone-0.1.65.crate/src/lib.rs",
     edition = "2021",
     features = ["fallback"],
-    platform = {
-        "macos-arm64": dict(
-            deps = [":core-foundation-sys-0.8.7"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":core-foundation-sys-0.8.7"],
-        ),
-    },
     visibility = [],
+    deps = [":core-foundation-sys-0.8.7"],
 )
 
 http_archive(
@@ -4299,38 +4031,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "khronos-egl-6.0.0.crate",
-    sha256 = "6aae1df220ece3c0ada96b8153459b67eebe9ae9212258bb0134ae60416fdf76",
-    strip_prefix = "khronos-egl-6.0.0",
-    urls = ["https://static.crates.io/crates/khronos-egl/6.0.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "khronos-egl-6.0.0",
-    srcs = [":khronos-egl-6.0.0.crate"],
-    crate = "khronos_egl",
-    crate_root = "khronos-egl-6.0.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "1_0",
-        "1_1",
-        "1_2",
-        "1_3",
-        "1_4",
-        "1_5",
-        "default",
-        "dynamic",
-        "libloading",
-    ],
-    visibility = [],
-    deps = [
-        ":libc-0.2.183",
-        ":libloading-0.8.9",
-    ],
-)
-
-http_archive(
     name = "lazy_static-1.5.0.crate",
     sha256 = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe",
     strip_prefix = "lazy_static-1.5.0",
@@ -4543,27 +4243,8 @@ cargo.rust_library(
     crate = "libloading",
     crate_root = "libloading-0.8.9.crate/src/lib.rs",
     edition = "2015",
-    platform = {
-        "linux-arm64": dict(
-            deps = [":cfg-if-1.0.4"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":cfg-if-1.0.4"],
-        ),
-        "macos-arm64": dict(
-            deps = [":cfg-if-1.0.4"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":cfg-if-1.0.4"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-link-0.2.1"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-link-0.2.1"],
-        ),
-    },
     visibility = [],
+    deps = [":cfg-if-1.0.4"],
 )
 
 http_archive(
@@ -4614,37 +4295,6 @@ cargo.rust_library(
     ],
     visibility = [],
     deps = [":spinning_top-0.2.5"],
-)
-
-http_archive(
-    name = "linux-raw-sys-0.12.1.crate",
-    sha256 = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53",
-    strip_prefix = "linux-raw-sys-0.12.1",
-    urls = ["https://static.crates.io/crates/linux-raw-sys/0.12.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "linux-raw-sys-0.12.1",
-    srcs = [":linux-raw-sys-0.12.1.crate"],
-    crate = "linux_raw_sys",
-    crate_root = "linux-raw-sys-0.12.1.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "auxvec",
-        "elf",
-        "errno",
-        "general",
-        "if_ether",
-        "ioctl",
-        "net",
-        "netlink",
-        "no_std",
-        "prctl",
-        "system",
-        "xdp",
-    ],
-    visibility = [],
 )
 
 http_archive(
@@ -4703,6 +4353,12 @@ cargo.rust_library(
     deps = [":scopeguard-1.2.0"],
 )
 
+alias(
+    name = "log",
+    actual = ":log-0.4.29",
+    visibility = ["PUBLIC"],
+)
+
 http_archive(
     name = "log-0.4.29.crate",
     sha256 = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897",
@@ -4747,24 +4403,24 @@ cargo.rust_library(
 
 alias(
     name = "lzma-rust2",
-    actual = ":lzma-rust2-0.15.7",
+    actual = ":lzma-rust2-0.16.2",
     visibility = ["PUBLIC"],
 )
 
 http_archive(
-    name = "lzma-rust2-0.15.7.crate",
-    sha256 = "1670343e58806300d87950e3401e820b519b9384281bbabfb15e3636689ffd69",
-    strip_prefix = "lzma-rust2-0.15.7",
-    urls = ["https://static.crates.io/crates/lzma-rust2/0.15.7/download"],
+    name = "lzma-rust2-0.16.2.crate",
+    sha256 = "47bb1e988e6fb779cf720ad431242d3f03167c1b3f2b1aae7f1a94b2495b36ae",
+    strip_prefix = "lzma-rust2-0.16.2",
+    urls = ["https://static.crates.io/crates/lzma-rust2/0.16.2/download"],
     visibility = [],
 )
 
 cargo.rust_library(
-    name = "lzma-rust2-0.15.7",
-    srcs = [":lzma-rust2-0.15.7.crate"],
+    name = "lzma-rust2-0.16.2",
+    srcs = [":lzma-rust2-0.16.2.crate"],
     crate = "lzma_rust2",
-    crate_root = "lzma-rust2-0.15.7.crate/src/lib.rs",
-    edition = "2021",
+    crate_root = "lzma-rust2-0.16.2.crate/src/lib.rs",
+    edition = "2024",
     visibility = [],
 )
 
@@ -4825,10 +4481,6 @@ cargo.rust_library(
     crate = "md5",
     crate_root = "md5-0.8.0.crate/src/lib.rs",
     edition = "2021",
-    features = [
-        "default",
-        "std",
-    ],
     visibility = [],
 )
 
@@ -4875,16 +4527,7 @@ cargo.rust_library(
     crate_root = "memmap2-0.9.10.crate/src/lib.rs",
     edition = "2021",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
             deps = [":libc-0.2.183"],
         ),
     },
@@ -4955,23 +4598,8 @@ cargo.rust_library(
         "os-poll",
     ],
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
@@ -5033,27 +4661,15 @@ cargo.rust_library(
     },
     features = [
         "default",
-        "spv-out",
         "wgsl-in",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["glsl-out"],
-        ),
-        "linux-x86_64": dict(
-            features = ["glsl-out"],
-        ),
         "macos-arm64": dict(
-            features = ["msl-out"],
-        ),
-        "macos-x86_64": dict(
-            features = ["msl-out"],
-        ),
-        "windows-gnu": dict(
-            features = ["glsl-out"],
-        ),
-        "windows-msvc": dict(
-            features = ["glsl-out"],
+            features = [
+                "msl-out",
+                "spv-out",
+            ],
+            deps = [":spirv-0.4.0+sdk-1.4.341.0"],
         ),
     },
     rustc_flags = ["@$(location :naga-29.0.1-build-script-run[rustc_flags])"],
@@ -5073,7 +4689,6 @@ cargo.rust_library(
         ":num-traits-0.2.19",
         ":once_cell-1.21.4",
         ":rustc-hash-1.1.0",
-        ":spirv-0.4.0+sdk-1.4.341.0",
         ":thiserror-2.0.18",
         ":unicode-ident-1.0.24",
     ],
@@ -5087,27 +4702,14 @@ cargo.rust_binary(
     edition = "2021",
     features = [
         "default",
-        "spv-out",
         "wgsl-in",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["glsl-out"],
-        ),
-        "linux-x86_64": dict(
-            features = ["glsl-out"],
-        ),
         "macos-arm64": dict(
-            features = ["msl-out"],
-        ),
-        "macos-x86_64": dict(
-            features = ["msl-out"],
-        ),
-        "windows-gnu": dict(
-            features = ["glsl-out"],
-        ),
-        "windows-msvc": dict(
-            features = ["glsl-out"],
+            features = [
+                "msl-out",
+                "spv-out",
+            ],
         ),
     },
     visibility = [],
@@ -5120,27 +4722,14 @@ buildscript_run(
     buildscript_rule = ":naga-29.0.1-build-script-build",
     features = [
         "default",
-        "spv-out",
         "wgsl-in",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["glsl-out"],
-        ),
-        "linux-x86_64": dict(
-            features = ["glsl-out"],
-        ),
         "macos-arm64": dict(
-            features = ["msl-out"],
-        ),
-        "macos-x86_64": dict(
-            features = ["msl-out"],
-        ),
-        "windows-gnu": dict(
-            features = ["glsl-out"],
-        ),
-        "windows-msvc": dict(
-            features = ["glsl-out"],
+            features = [
+                "msl-out",
+                "spv-out",
+            ],
         ),
     },
     version = "29.0.1",
@@ -5186,18 +4775,6 @@ cargo.rust_library(
         "default",
         "std",
     ],
-    platform = {
-        "windows-gnu": dict(
-            named_deps = {
-                "windows": ":windows-sys-0.61.2",
-            },
-        ),
-        "windows-msvc": dict(
-            named_deps = {
-                "windows": ":windows-sys-0.61.2",
-            },
-        ),
-    },
     visibility = [],
 )
 
@@ -5322,9 +4899,6 @@ cargo.rust_library(
     ],
     platform = {
         "macos-arm64": dict(
-            features = ["relax-sign-encoding"],
-        ),
-        "macos-x86_64": dict(
             features = ["relax-sign-encoding"],
         ),
     },
@@ -5673,17 +5247,6 @@ cargo.rust_library(
                 ":objc2-quartz-core-0.3.2",
             ],
         ),
-        "macos-x86_64": dict(
-            deps = [
-                ":objc2-cloud-kit-0.3.2",
-                ":objc2-core-data-0.3.2",
-                ":objc2-core-graphics-0.3.2",
-                ":objc2-core-image-0.3.2",
-                ":objc2-core-text-0.3.2",
-                ":objc2-core-video-0.3.2",
-                ":objc2-quartz-core-0.3.2",
-            ],
-        ),
     },
     visibility = [],
     deps = [
@@ -5805,18 +5368,6 @@ cargo.rust_library(
             ],
             deps = [":block2-0.6.2"],
         ),
-        "macos-x86_64": dict(
-            features = [
-                "CFBase",
-                "CFNumber",
-                "CFString",
-                "CFUUID",
-                "alloc",
-                "block2",
-                "std",
-            ],
-            deps = [":block2-0.6.2"],
-        ),
     },
     visibility = [],
     deps = [
@@ -5848,27 +5399,6 @@ cargo.rust_library(
     ],
     platform = {
         "macos-arm64": dict(
-            features = [
-                "CGDirectDisplay",
-                "CGDisplayConfiguration",
-                "CGDisplayFade",
-                "CGError",
-                "CGEventTypes",
-                "CGFont",
-                "CGImage",
-                "CGRemoteOperation",
-                "CGWindowLevel",
-                "alloc",
-                "bitflags",
-                "libc",
-                "std",
-            ],
-            deps = [
-                ":bitflags-2.11.0",
-                ":libc-0.2.183",
-            ],
-        ),
-        "macos-x86_64": dict(
             features = [
                 "CGDirectDisplay",
                 "CGDisplayConfiguration",
@@ -5975,16 +5505,6 @@ cargo.rust_library(
     ],
     platform = {
         "macos-arm64": dict(
-            features = [
-                "CVDisplayLink",
-                "CVReturn",
-                "alloc",
-                "objc2-core-graphics",
-                "std",
-            ],
-            deps = [":objc2-core-graphics-0.3.2"],
-        ),
-        "macos-x86_64": dict(
             features = [
                 "CVDisplayLink",
                 "CVReturn",
@@ -6111,18 +5631,6 @@ cargo.rust_library(
             ],
             deps = [":block2-0.6.2"],
         ),
-        "macos-x86_64": dict(
-            features = [
-                "NSDistributedNotificationCenter",
-                "NSKeyValueObserving",
-                "NSPathUtilities",
-                "NSProcessInfo",
-                "NSThread",
-                "block2",
-                "std",
-            ],
-            deps = [":block2-0.6.2"],
-        ),
     },
     visibility = [],
     deps = [
@@ -6160,41 +5668,6 @@ cargo.rust_library(
     ],
     platform = {
         "macos-arm64": dict(
-            features = [
-                "MTLAccelerationStructure",
-                "MTLAccelerationStructureCommandEncoder",
-                "MTLAccelerationStructureTypes",
-                "MTLArgument",
-                "MTLBlitCommandEncoder",
-                "MTLBlitPass",
-                "MTLBuffer",
-                "MTLCaptureManager",
-                "MTLCaptureScope",
-                "MTLCommandBuffer",
-                "MTLCommandEncoder",
-                "MTLCommandQueue",
-                "MTLComputeCommandEncoder",
-                "MTLComputePass",
-                "MTLComputePipeline",
-                "MTLCounters",
-                "MTLDataType",
-                "MTLDepthStencil",
-                "MTLEvent",
-                "MTLPipeline",
-                "MTLRenderCommandEncoder",
-                "MTLRenderPass",
-                "MTLRenderPipeline",
-                "MTLSampler",
-                "MTLStageInputOutputDescriptor",
-                "MTLTypes",
-                "MTLVertexDescriptor",
-                "alloc",
-                "block2",
-                "std",
-            ],
-            deps = [":block2-0.6.2"],
-        ),
-        "macos-x86_64": dict(
             features = [
                 "MTLAccelerationStructure",
                 "MTLAccelerationStructureCommandEncoder",
@@ -6337,23 +5810,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "openssl-probe-0.2.1.crate",
-    sha256 = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe",
-    strip_prefix = "openssl-probe-0.2.1",
-    urls = ["https://static.crates.io/crates/openssl-probe/0.2.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "openssl-probe-0.2.1",
-    srcs = [":openssl-probe-0.2.1.crate"],
-    crate = "openssl_probe",
-    crate_root = "openssl-probe-0.2.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-)
-
-http_archive(
     name = "ordered-float-5.3.0.crate",
     sha256 = "b7d950ca161dc355eaf28f82b11345ed76c6e1f6eb1f4f4479e0323b9e2fbd0e",
     strip_prefix = "ordered-float-5.3.0",
@@ -6408,23 +5864,8 @@ cargo.rust_library(
     crate_root = "parking_lot_core-0.9.12.crate/src/lib.rs",
     edition = "2021",
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-link-0.2.1"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-link-0.2.1"],
         ),
     },
     visibility = [],
@@ -6608,27 +6049,6 @@ cargo.rust_library(
         ":fdeflate-0.3.7",
         ":flate2-1.1.9",
         ":miniz_oxide-0.8.9",
-    ],
-)
-
-http_archive(
-    name = "polling-3.11.0.crate",
-    sha256 = "5d0e4f59085d47d8241c88ead0f274e8a0cb551f3625263c05eb8dd897c34218",
-    strip_prefix = "polling-3.11.0",
-    urls = ["https://static.crates.io/crates/polling/3.11.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "polling-3.11.0",
-    srcs = [":polling-3.11.0.crate"],
-    crate = "polling",
-    crate_root = "polling-3.11.0.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":cfg-if-1.0.4",
-        ":rustix-1.1.4",
     ],
 )
 
@@ -6848,25 +6268,6 @@ cargo.rust_library(
     srcs = [":quick-xml-0.38.4.crate"],
     crate = "quick_xml",
     crate_root = "quick-xml-0.38.4.crate/src/lib.rs",
-    edition = "2021",
-    features = ["default"],
-    visibility = [],
-    deps = [":memchr-2.8.0"],
-)
-
-http_archive(
-    name = "quick-xml-0.39.2.crate",
-    sha256 = "958f21e8e7ceb5a1aa7fa87fab28e7c75976e0bfe7e23ff069e0a260f894067d",
-    strip_prefix = "quick-xml-0.39.2",
-    urls = ["https://static.crates.io/crates/quick-xml/0.39.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "quick-xml-0.39.2",
-    srcs = [":quick-xml-0.39.2.crate"],
-    crate = "quick_xml",
-    crate_root = "quick-xml-0.39.2.crate/src/lib.rs",
     edition = "2021",
     features = ["default"],
     visibility = [],
@@ -7353,15 +6754,6 @@ cargo.rust_library(
         "macos-arm64": dict(
             deps = [":mach2-0.4.3"],
         ),
-        "macos-x86_64": dict(
-            deps = [":mach2-0.4.3"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.52.0"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.52.0"],
-        ),
     },
     visibility = [],
     deps = [
@@ -7640,63 +7032,15 @@ cargo.rust_library(
         "fs",
         "std",
     ],
-    platform = {
-        "linux-arm64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-            deps = [":linux-raw-sys-0.12.1"],
-        ),
-        "linux-x86_64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-            deps = [":linux-raw-sys-0.12.1"],
-        ),
-        "macos-arm64": dict(
-            named_deps = {
-                "libc_errno": ":errno-0.3.14",
-            },
-            deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            named_deps = {
-                "libc_errno": ":errno-0.3.14",
-            },
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            named_deps = {
-                "libc_errno": ":errno-0.3.14",
-            },
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            named_deps = {
-                "libc_errno": ":errno-0.3.14",
-            },
-            deps = [":windows-sys-0.61.2"],
-        ),
+    named_deps = {
+        "libc_errno": ":errno-0.3.14",
     },
     rustc_flags = ["@$(location :rustix-1.1.4-build-script-run[rustc_flags])"],
     visibility = [],
-    deps = [":bitflags-2.11.0"],
+    deps = [
+        ":bitflags-2.11.0",
+        ":libc-0.2.183",
+    ],
 )
 
 cargo.rust_binary(
@@ -7710,34 +7054,6 @@ cargo.rust_binary(
         "fs",
         "std",
     ],
-    platform = {
-        "linux-arm64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-        ),
-        "linux-x86_64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-        ),
-    },
     visibility = [],
 )
 
@@ -7750,34 +7066,6 @@ buildscript_run(
         "fs",
         "std",
     ],
-    platform = {
-        "linux-arm64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-        ),
-        "linux-x86_64": dict(
-            features = [
-                "default",
-                "event",
-                "net",
-                "pipe",
-                "process",
-                "shm",
-                "system",
-                "thread",
-                "time",
-            ],
-        ),
-    },
     version = "1.1.4",
 )
 
@@ -7836,27 +7124,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "rustls-native-certs-0.8.3.crate",
-    sha256 = "612460d5f7bea540c490b2b6395d8e34a953e52b491accd6c86c8164c5932a63",
-    strip_prefix = "rustls-native-certs-0.8.3",
-    urls = ["https://static.crates.io/crates/rustls-native-certs/0.8.3/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "rustls-native-certs-0.8.3",
-    srcs = [":rustls-native-certs-0.8.3.crate"],
-    crate = "rustls_native_certs",
-    crate_root = "rustls-native-certs-0.8.3.crate/src/lib.rs",
-    edition = "2021",
-    named_deps = {
-        "pki_types": ":rustls-pki-types-1.14.0",
-    },
-    visibility = [],
-    deps = [":openssl-probe-0.2.1"],
-)
-
-http_archive(
     name = "rustls-pki-types-1.14.0.crate",
     sha256 = "be040f8b0a225e40375822a563fa9524378b9d63112f53e19ffff34df5d33fdd",
     strip_prefix = "rustls-pki-types-1.14.0",
@@ -7894,18 +7161,6 @@ cargo.rust_library(
     crate_root = "rustls-platform-verifier-0.6.2.crate/src/lib.rs",
     edition = "2021",
     platform = {
-        "linux-arm64": dict(
-            deps = [
-                ":rustls-native-certs-0.8.3",
-                ":rustls-webpki-0.103.10",
-            ],
-        ),
-        "linux-x86_64": dict(
-            deps = [
-                ":rustls-native-certs-0.8.3",
-                ":rustls-webpki-0.103.10",
-            ],
-        ),
         "macos-arm64": dict(
             deps = [
                 ":core-foundation-0.10.1",
@@ -7913,20 +7168,6 @@ cargo.rust_library(
                 ":security-framework-3.7.0",
                 ":security-framework-sys-2.17.0",
             ],
-        ),
-        "macos-x86_64": dict(
-            deps = [
-                ":core-foundation-0.10.1",
-                ":core-foundation-sys-0.8.7",
-                ":security-framework-3.7.0",
-                ":security-framework-sys-2.17.0",
-            ],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
@@ -8088,23 +7329,6 @@ cargo.rust_library(
         ":serde_derive_internals-0.29.1",
         ":syn-2.0.117",
     ],
-)
-
-http_archive(
-    name = "scoped-tls-1.0.1.crate",
-    sha256 = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294",
-    strip_prefix = "scoped-tls-1.0.1",
-    urls = ["https://static.crates.io/crates/scoped-tls/1.0.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "scoped-tls-1.0.1",
-    srcs = [":scoped-tls-1.0.1.crate"],
-    crate = "scoped_tls",
-    crate_root = "scoped-tls-1.0.1.crate/src/lib.rs",
-    edition = "2015",
-    visibility = [],
 )
 
 http_archive(
@@ -8675,48 +7899,6 @@ cargo.rust_library(
 )
 
 http_archive(
-    name = "smithay-client-toolkit-0.20.0.crate",
-    sha256 = "0512da38f5e2b31201a93524adb8d3136276fa4fe4aafab4e1f727a82b534cc0",
-    strip_prefix = "smithay-client-toolkit-0.20.0",
-    urls = ["https://static.crates.io/crates/smithay-client-toolkit/0.20.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "smithay-client-toolkit-0.20.0",
-    srcs = [":smithay-client-toolkit-0.20.0.crate"],
-    crate = "smithay_client_toolkit",
-    crate_root = "smithay-client-toolkit-0.20.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "calloop",
-        "calloop-wayland-source",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":calloop-0.14.4",
-        ":calloop-wayland-source-0.4.1",
-        ":cursor-icon-1.2.0",
-        ":libc-0.2.183",
-        ":log-0.4.29",
-        ":memmap2-0.9.10",
-        ":rustix-1.1.4",
-        ":thiserror-2.0.18",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-csd-frame-0.3.0",
-        ":wayland-cursor-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-protocols-experimental-20250721.0.1",
-        ":wayland-protocols-misc-0.3.11",
-        ":wayland-protocols-wlr-0.3.11",
-        ":wayland-scanner-0.31.9",
-        ":xkeysym-0.2.1",
-    ],
-)
-
-http_archive(
     name = "smol_str-0.3.6.crate",
     sha256 = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523",
     strip_prefix = "smol_str-0.3.6",
@@ -8801,23 +7983,8 @@ cargo.rust_library(
     edition = "2021",
     features = ["all"],
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
@@ -9356,25 +8523,8 @@ cargo.rust_library(
         "tokio-macros",
     ],
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            features = ["windows-sys"],
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            features = ["windows-sys"],
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
@@ -9592,16 +8742,6 @@ cargo.rust_library(
         "std",
         "tracing-attributes",
     ],
-    platform = {
-        "linux-arm64": dict(
-            features = ["log"],
-            deps = [":log-0.4.29"],
-        ),
-        "linux-x86_64": dict(
-            features = ["log"],
-            deps = [":log-0.4.29"],
-        ),
-    },
     visibility = [],
     deps = [
         ":pin-project-lite-0.2.17",
@@ -10082,311 +9222,12 @@ cargo.rust_library(
         "wasmtime_core": ":wasmtime-internal-core-43.0.0",
     },
     platform = {
-        "linux-arm64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
         "macos-arm64": dict(
             deps = [":libc-0.2.183"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":libc-0.2.183"],
-        ),
-        "windows-gnu": dict(
-            deps = [":windows-sys-0.61.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows-sys-0.61.2"],
         ),
     },
     visibility = [],
     deps = [":cfg-if-1.0.4"],
-)
-
-http_archive(
-    name = "wayland-backend-0.3.14.crate",
-    sha256 = "aa75f400b7f719bcd68b3f47cd939ba654cedeef690f486db71331eec4c6a406",
-    strip_prefix = "wayland-backend-0.3.14",
-    urls = ["https://static.crates.io/crates/wayland-backend/0.3.14/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-backend-0.3.14",
-    srcs = [":wayland-backend-0.3.14.crate"],
-    crate = "wayland_backend",
-    crate_root = "wayland-backend-0.3.14.crate/src/lib.rs",
-    edition = "2021",
-    features = ["client_system"],
-    visibility = [],
-    deps = [
-        ":downcast-rs-1.2.1",
-        ":rustix-1.1.4",
-        ":scoped-tls-1.0.1",
-        ":smallvec-1.15.1",
-        ":wayland-sys-0.31.10",
-    ],
-)
-
-http_archive(
-    name = "wayland-client-0.31.13.crate",
-    sha256 = "ab51d9f7c071abeee76007e2b742499e535148035bb835f97aaed1338cf516c3",
-    strip_prefix = "wayland-client-0.31.13",
-    urls = ["https://static.crates.io/crates/wayland-client/0.31.13/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-client-0.31.13",
-    srcs = [":wayland-client-0.31.13.crate"],
-    crate = "wayland_client",
-    crate_root = "wayland-client-0.31.13.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":rustix-1.1.4",
-        ":wayland-backend-0.3.14",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-csd-frame-0.3.0.crate",
-    sha256 = "625c5029dbd43d25e6aa9615e88b829a5cad13b2819c4ae129fdbb7c31ab4c7e",
-    strip_prefix = "wayland-csd-frame-0.3.0",
-    urls = ["https://static.crates.io/crates/wayland-csd-frame/0.3.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-csd-frame-0.3.0",
-    srcs = [":wayland-csd-frame-0.3.0.crate"],
-    crate = "wayland_csd_frame",
-    crate_root = "wayland-csd-frame-0.3.0.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":cursor-icon-1.2.0",
-        ":wayland-backend-0.3.14",
-    ],
-)
-
-http_archive(
-    name = "wayland-cursor-0.31.13.crate",
-    sha256 = "4b3298683470fbdc6ca40151dfc48c8f2fd4c41a26e13042f801f85002384091",
-    strip_prefix = "wayland-cursor-0.31.13",
-    urls = ["https://static.crates.io/crates/wayland-cursor/0.31.13/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-cursor-0.31.13",
-    srcs = [":wayland-cursor-0.31.13.crate"],
-    crate = "wayland_cursor",
-    crate_root = "wayland-cursor-0.31.13.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":rustix-1.1.4",
-        ":wayland-client-0.31.13",
-        ":xcursor-0.3.10",
-    ],
-)
-
-http_archive(
-    name = "wayland-protocols-0.32.11.crate",
-    sha256 = "b23b5df31ceff1328f06ac607591d5ba360cf58f90c8fad4ac8d3a55a3c4aec7",
-    strip_prefix = "wayland-protocols-0.32.11",
-    urls = ["https://static.crates.io/crates/wayland-protocols/0.32.11/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-protocols-0.32.11",
-    srcs = [":wayland-protocols-0.32.11.crate"],
-    crate = "wayland_protocols",
-    crate_root = "wayland-protocols-0.32.11.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "staging",
-        "unstable",
-        "wayland-client",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-protocols-experimental-20250721.0.1.crate",
-    sha256 = "40a1f863128dcaaec790d7b4b396cc9b9a7a079e878e18c47e6c2d2c5a8dcbb1",
-    strip_prefix = "wayland-protocols-experimental-20250721.0.1",
-    urls = ["https://static.crates.io/crates/wayland-protocols-experimental/20250721.0.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-protocols-experimental-20250721.0.1",
-    srcs = [":wayland-protocols-experimental-20250721.0.1.crate"],
-    crate = "wayland_protocols_experimental",
-    crate_root = "wayland-protocols-experimental-20250721.0.1.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "wayland-client",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-protocols-misc-0.3.11.crate",
-    sha256 = "429b99200febaf95d4f4e46deff6fe4382bcff3280ee16a41cf887b3c3364984",
-    strip_prefix = "wayland-protocols-misc-0.3.11",
-    urls = ["https://static.crates.io/crates/wayland-protocols-misc/0.3.11/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-protocols-misc-0.3.11",
-    srcs = [":wayland-protocols-misc-0.3.11.crate"],
-    crate = "wayland_protocols_misc",
-    crate_root = "wayland-protocols-misc-0.3.11.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "wayland-client",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-protocols-plasma-0.3.11.crate",
-    sha256 = "d392fc283a87774afc9beefcd6f931582bb97fe0e6ced0b306a62cb1d026527c",
-    strip_prefix = "wayland-protocols-plasma-0.3.11",
-    urls = ["https://static.crates.io/crates/wayland-protocols-plasma/0.3.11/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-protocols-plasma-0.3.11",
-    srcs = [":wayland-protocols-plasma-0.3.11.crate"],
-    crate = "wayland_protocols_plasma",
-    crate_root = "wayland-protocols-plasma-0.3.11.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "wayland-client",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-protocols-wlr-0.3.11.crate",
-    sha256 = "78248e4cc0eff8163370ba5c158630dcae1f3497a586b826eca2ef5f348d6235",
-    strip_prefix = "wayland-protocols-wlr-0.3.11",
-    urls = ["https://static.crates.io/crates/wayland-protocols-wlr/0.3.11/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-protocols-wlr-0.3.11",
-    srcs = [":wayland-protocols-wlr-0.3.11.crate"],
-    crate = "wayland_protocols_wlr",
-    crate_root = "wayland-protocols-wlr-0.3.11.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "wayland-client",
-    ],
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-scanner-0.31.9",
-    ],
-)
-
-http_archive(
-    name = "wayland-scanner-0.31.9.crate",
-    sha256 = "c86287151a309799b821ca709b7345a048a2956af05957c89cb824ab919fa4e3",
-    strip_prefix = "wayland-scanner-0.31.9",
-    urls = ["https://static.crates.io/crates/wayland-scanner/0.31.9/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-scanner-0.31.9",
-    srcs = [":wayland-scanner-0.31.9.crate"],
-    crate = "wayland_scanner",
-    crate_root = "wayland-scanner-0.31.9.crate/src/lib.rs",
-    edition = "2021",
-    proc_macro = True,
-    visibility = [],
-    deps = [
-        ":proc-macro2-1.0.106",
-        ":quick-xml-0.39.2",
-        ":quote-1.0.45",
-    ],
-)
-
-http_archive(
-    name = "wayland-sys-0.31.10.crate",
-    sha256 = "374f6b70e8e0d6bf9461a32988fd553b59ff630964924dad6e4a4eb6bd538d17",
-    strip_prefix = "wayland-sys-0.31.10",
-    urls = ["https://static.crates.io/crates/wayland-sys/0.31.10/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wayland-sys-0.31.10",
-    srcs = [":wayland-sys-0.31.10.crate"],
-    crate = "wayland_sys",
-    crate_root = "wayland-sys-0.31.10.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "client",
-        "dlopen",
-        "egl",
-        "once_cell",
-    ],
-    visibility = [],
-    deps = [
-        ":dlib-0.5.3",
-        ":log-0.4.29",
-        ":once_cell-1.21.4",
-    ],
 )
 
 alias(
@@ -10543,29 +9384,9 @@ cargo.rust_library(
         "wgsl",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-            deps = [":wgpu-core-deps-windows-linux-android-29.0.0"],
-        ),
-        "linux-x86_64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-            deps = [":wgpu-core-deps-windows-linux-android-29.0.0"],
-        ),
         "macos-arm64": dict(
             features = ["wgpu-core-deps-apple"],
             deps = [":wgpu-core-deps-apple-29.0.0"],
-        ),
-        "macos-x86_64": dict(
-            features = ["wgpu-core-deps-apple"],
-            deps = [":wgpu-core-deps-apple-29.0.0"],
-        ),
-        "windows-gnu": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-            deps = [":wgpu-core-deps-windows-linux-android-29.0.0"],
-        ),
-        "windows-msvc": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-            deps = [":wgpu-core-deps-windows-linux-android-29.0.0"],
         ),
     },
     rustc_flags = ["@$(location :wgpu-core-29.0.1-build-script-run[rustc_flags])"],
@@ -10625,23 +9446,8 @@ cargo.rust_binary(
         "wgsl",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
-        "linux-x86_64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
         "macos-arm64": dict(
             features = ["wgpu-core-deps-apple"],
-        ),
-        "macos-x86_64": dict(
-            features = ["wgpu-core-deps-apple"],
-        ),
-        "windows-gnu": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
-        "windows-msvc": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
         ),
     },
     visibility = [],
@@ -10673,23 +9479,8 @@ buildscript_run(
         "wgsl",
     ],
     platform = {
-        "linux-arm64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
-        "linux-x86_64": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
         "macos-arm64": dict(
             features = ["wgpu-core-deps-apple"],
-        ),
-        "macos-x86_64": dict(
-            features = ["wgpu-core-deps-apple"],
-        ),
-        "windows-gnu": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
-        ),
-        "windows-msvc": dict(
-            features = ["wgpu-core-deps-windows-linux-android"],
         ),
     },
     version = "29.0.1",
@@ -10712,29 +9503,6 @@ cargo.rust_library(
     features = [
         "metal",
         "vulkan-portability",
-    ],
-    visibility = [],
-    deps = [":wgpu-hal-29.0.1"],
-)
-
-http_archive(
-    name = "wgpu-core-deps-windows-linux-android-29.0.0.crate",
-    sha256 = "725d5c006a8c02967b6d93ef04f6537ec4593313e330cfe86d9d3f946eb90f28",
-    strip_prefix = "wgpu-core-deps-windows-linux-android-29.0.0",
-    urls = ["https://static.crates.io/crates/wgpu-core-deps-windows-linux-android/29.0.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "wgpu-core-deps-windows-linux-android-29.0.0",
-    srcs = [":wgpu-core-deps-windows-linux-android-29.0.0.crate"],
-    crate = "wgpu_core_deps_windows_linux_android",
-    crate_root = "wgpu-core-deps-windows-linux-android-29.0.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "gles",
-        "renderdoc",
-        "vulkan",
     ],
     visibility = [],
     deps = [":wgpu-hal-29.0.1"],
@@ -10768,95 +9536,46 @@ cargo.rust_library(
         "CARGO_PKG_VERSION_PRE": "",
         "OUT_DIR": "$(location :wgpu-hal-29.0.1-build-script-run[out_dir])",
     },
-    features = [
-        "portable-atomic",
-        "renderdoc",
-        "vulkan",
-    ],
+    features = ["portable-atomic"],
     platform = {
-        "linux-arm64": dict(
-            features = ["gles"],
-            deps = [
-                ":glow-0.17.0",
-                ":khronos-egl-6.0.0",
-                ":libc-0.2.183",
-                ":wayland-sys-0.31.10",
-            ],
-        ),
-        "linux-x86_64": dict(
-            features = ["gles"],
-            deps = [
-                ":glow-0.17.0",
-                ":khronos-egl-6.0.0",
-                ":libc-0.2.183",
-                ":wayland-sys-0.31.10",
-            ],
-        ),
         "macos-arm64": dict(
-            features = ["metal"],
+            features = [
+                "metal",
+                "renderdoc",
+                "vulkan",
+            ],
             deps = [
+                ":arrayvec-0.7.6",
+                ":ash-0.38.0+1.3.281",
                 ":block2-0.6.2",
+                ":bytemuck-1.25.0",
+                ":gpu-allocator-0.28.0",
+                ":gpu-descriptor-0.3.2",
+                ":hashbrown-0.16.1",
                 ":libc-0.2.183",
+                ":libloading-0.8.9",
                 ":objc2-0.6.4",
                 ":objc2-core-foundation-0.3.2",
                 ":objc2-foundation-0.3.2",
                 ":objc2-metal-0.3.2",
                 ":objc2-quartz-core-0.3.2",
+                ":ordered-float-5.3.0",
+                ":parking_lot-0.12.5",
+                ":profiling-1.0.17",
                 ":raw-window-metal-1.1.0",
-            ],
-        ),
-        "macos-x86_64": dict(
-            features = ["metal"],
-            deps = [
-                ":block2-0.6.2",
-                ":libc-0.2.183",
-                ":objc2-0.6.4",
-                ":objc2-core-foundation-0.3.2",
-                ":objc2-foundation-0.3.2",
-                ":objc2-metal-0.3.2",
-                ":objc2-quartz-core-0.3.2",
-                ":raw-window-metal-1.1.0",
-            ],
-        ),
-        "windows-gnu": dict(
-            features = ["gles"],
-            deps = [
-                ":glow-0.17.0",
-                ":glutin_wgl_sys-0.6.1",
-                ":khronos-egl-6.0.0",
-                ":windows-0.62.2",
-            ],
-        ),
-        "windows-msvc": dict(
-            features = ["gles"],
-            deps = [
-                ":glow-0.17.0",
-                ":glutin_wgl_sys-0.6.1",
-                ":khronos-egl-6.0.0",
-                ":windows-0.62.2",
+                ":renderdoc-sys-1.1.0",
+                ":smallvec-1.15.1",
             ],
         ),
     },
     rustc_flags = ["@$(location :wgpu-hal-29.0.1-build-script-run[rustc_flags])"],
     visibility = [],
     deps = [
-        ":arrayvec-0.7.6",
-        ":ash-0.38.0+1.3.281",
         ":bitflags-2.11.0",
-        ":bytemuck-1.25.0",
         ":cfg-if-1.0.4",
-        ":gpu-allocator-0.28.0",
-        ":gpu-descriptor-0.3.2",
-        ":hashbrown-0.16.1",
-        ":libloading-0.8.9",
         ":log-0.4.29",
         ":naga-29.0.1",
-        ":ordered-float-5.3.0",
-        ":parking_lot-0.12.5",
-        ":profiling-1.0.17",
         ":raw-window-handle-0.6.2",
-        ":renderdoc-sys-1.1.0",
-        ":smallvec-1.15.1",
         ":thiserror-2.0.18",
         ":wgpu-naga-bridge-29.0.1",
         ":wgpu-types-29.0.1",
@@ -10882,29 +9601,14 @@ cargo.rust_binary(
         "CARGO_PKG_VERSION_PATCH": "1",
         "CARGO_PKG_VERSION_PRE": "",
     },
-    features = [
-        "portable-atomic",
-        "renderdoc",
-        "vulkan",
-    ],
+    features = ["portable-atomic"],
     platform = {
-        "linux-arm64": dict(
-            features = ["gles"],
-        ),
-        "linux-x86_64": dict(
-            features = ["gles"],
-        ),
         "macos-arm64": dict(
-            features = ["metal"],
-        ),
-        "macos-x86_64": dict(
-            features = ["metal"],
-        ),
-        "windows-gnu": dict(
-            features = ["gles"],
-        ),
-        "windows-msvc": dict(
-            features = ["gles"],
+            features = [
+                "metal",
+                "renderdoc",
+                "vulkan",
+            ],
         ),
     },
     visibility = [],
@@ -10924,29 +9628,14 @@ buildscript_run(
         "CARGO_PKG_VERSION_PATCH": "1",
         "CARGO_PKG_VERSION_PRE": "",
     },
-    features = [
-        "portable-atomic",
-        "renderdoc",
-        "vulkan",
-    ],
+    features = ["portable-atomic"],
     platform = {
-        "linux-arm64": dict(
-            features = ["gles"],
-        ),
-        "linux-x86_64": dict(
-            features = ["gles"],
-        ),
         "macos-arm64": dict(
-            features = ["metal"],
-        ),
-        "macos-x86_64": dict(
-            features = ["metal"],
-        ),
-        "windows-gnu": dict(
-            features = ["gles"],
-        ),
-        "windows-msvc": dict(
-            features = ["gles"],
+            features = [
+                "metal",
+                "renderdoc",
+                "vulkan",
+            ],
         ),
     },
     version = "29.0.1",
@@ -10987,20 +9676,6 @@ cargo.rust_library(
     crate = "wgpu_types",
     crate_root = "wgpu-types-29.0.1.crate/src/lib.rs",
     edition = "2021",
-    platform = {
-        "linux-arm64": dict(
-            features = ["web"],
-        ),
-        "linux-x86_64": dict(
-            features = ["web"],
-        ),
-        "windows-gnu": dict(
-            features = ["web"],
-        ),
-        "windows-msvc": dict(
-            features = ["web"],
-        ),
-    },
     visibility = [],
     deps = [
         ":bitflags-2.11.0",
@@ -11008,430 +9683,6 @@ cargo.rust_library(
         ":log-0.4.29",
         ":raw-window-handle-0.6.2",
     ],
-)
-
-http_archive(
-    name = "windows-0.62.2.crate",
-    sha256 = "527fadee13e0c05939a6a05d5bd6eec6cd2e3dbd648b9f8e447c6518133d8580",
-    strip_prefix = "windows-0.62.2",
-    urls = ["https://static.crates.io/crates/windows/0.62.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-0.62.2",
-    srcs = [":windows-0.62.2.crate"],
-    crate = "windows",
-    crate_root = "windows-0.62.2.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "Win32",
-        "Win32_Foundation",
-        "Win32_Graphics",
-        "Win32_Graphics_Gdi",
-        "Win32_Graphics_OpenGL",
-        "Win32_System",
-        "Win32_System_LibraryLoader",
-        "Win32_UI",
-        "Win32_UI_WindowsAndMessaging",
-    ],
-    visibility = [],
-    deps = [
-        ":windows-collections-0.3.2",
-        ":windows-core-0.62.2",
-        ":windows-future-0.3.2",
-        ":windows-numerics-0.3.1",
-    ],
-)
-
-http_archive(
-    name = "windows-collections-0.3.2.crate",
-    sha256 = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610",
-    strip_prefix = "windows-collections-0.3.2",
-    urls = ["https://static.crates.io/crates/windows-collections/0.3.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-collections-0.3.2",
-    srcs = [":windows-collections-0.3.2.crate"],
-    crate = "windows_collections",
-    crate_root = "windows-collections-0.3.2.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":windows-core-0.62.2"],
-)
-
-http_archive(
-    name = "windows-core-0.62.2.crate",
-    sha256 = "b8e83a14d34d0623b51dce9581199302a221863196a1dde71a7663a4c2be9deb",
-    strip_prefix = "windows-core-0.62.2",
-    urls = ["https://static.crates.io/crates/windows-core/0.62.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-core-0.62.2",
-    srcs = [":windows-core-0.62.2.crate"],
-    crate = "windows_core",
-    crate_root = "windows-core-0.62.2.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":windows-implement-0.60.2",
-        ":windows-interface-0.59.3",
-        ":windows-link-0.2.1",
-        ":windows-result-0.4.1",
-        ":windows-strings-0.5.1",
-    ],
-)
-
-http_archive(
-    name = "windows-future-0.3.2.crate",
-    sha256 = "e1d6f90251fe18a279739e78025bd6ddc52a7e22f921070ccdc67dde84c605cb",
-    strip_prefix = "windows-future-0.3.2",
-    urls = ["https://static.crates.io/crates/windows-future/0.3.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-future-0.3.2",
-    srcs = [":windows-future-0.3.2.crate"],
-    crate = "windows_future",
-    crate_root = "windows-future-0.3.2.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":windows-core-0.62.2",
-        ":windows-link-0.2.1",
-        ":windows-threading-0.2.1",
-    ],
-)
-
-http_archive(
-    name = "windows-implement-0.60.2.crate",
-    sha256 = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf",
-    strip_prefix = "windows-implement-0.60.2",
-    urls = ["https://static.crates.io/crates/windows-implement/0.60.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-implement-0.60.2",
-    srcs = [":windows-implement-0.60.2.crate"],
-    crate = "windows_implement",
-    crate_root = "windows-implement-0.60.2.crate/src/lib.rs",
-    edition = "2021",
-    proc_macro = True,
-    visibility = [],
-    deps = [
-        ":proc-macro2-1.0.106",
-        ":quote-1.0.45",
-        ":syn-2.0.117",
-    ],
-)
-
-http_archive(
-    name = "windows-interface-0.59.3.crate",
-    sha256 = "3f316c4a2570ba26bbec722032c4099d8c8bc095efccdc15688708623367e358",
-    strip_prefix = "windows-interface-0.59.3",
-    urls = ["https://static.crates.io/crates/windows-interface/0.59.3/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-interface-0.59.3",
-    srcs = [":windows-interface-0.59.3.crate"],
-    crate = "windows_interface",
-    crate_root = "windows-interface-0.59.3.crate/src/lib.rs",
-    edition = "2021",
-    proc_macro = True,
-    visibility = [],
-    deps = [
-        ":proc-macro2-1.0.106",
-        ":quote-1.0.45",
-        ":syn-2.0.117",
-    ],
-)
-
-http_archive(
-    name = "windows-link-0.2.1.crate",
-    sha256 = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5",
-    strip_prefix = "windows-link-0.2.1",
-    urls = ["https://static.crates.io/crates/windows-link/0.2.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-link-0.2.1",
-    srcs = [":windows-link-0.2.1.crate"],
-    crate = "windows_link",
-    crate_root = "windows-link-0.2.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-)
-
-http_archive(
-    name = "windows-numerics-0.3.1.crate",
-    sha256 = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26",
-    strip_prefix = "windows-numerics-0.3.1",
-    urls = ["https://static.crates.io/crates/windows-numerics/0.3.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-numerics-0.3.1",
-    srcs = [":windows-numerics-0.3.1.crate"],
-    crate = "windows_numerics",
-    crate_root = "windows-numerics-0.3.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":windows-core-0.62.2",
-        ":windows-link-0.2.1",
-    ],
-)
-
-http_archive(
-    name = "windows-result-0.4.1.crate",
-    sha256 = "7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5",
-    strip_prefix = "windows-result-0.4.1",
-    urls = ["https://static.crates.io/crates/windows-result/0.4.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-result-0.4.1",
-    srcs = [":windows-result-0.4.1.crate"],
-    crate = "windows_result",
-    crate_root = "windows-result-0.4.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":windows-link-0.2.1"],
-)
-
-http_archive(
-    name = "windows-strings-0.5.1.crate",
-    sha256 = "7837d08f69c77cf6b07689544538e017c1bfcf57e34b4c0ff58e6c2cd3b37091",
-    strip_prefix = "windows-strings-0.5.1",
-    urls = ["https://static.crates.io/crates/windows-strings/0.5.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-strings-0.5.1",
-    srcs = [":windows-strings-0.5.1.crate"],
-    crate = "windows_strings",
-    crate_root = "windows-strings-0.5.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":windows-link-0.2.1"],
-)
-
-http_archive(
-    name = "windows-sys-0.52.0.crate",
-    sha256 = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d",
-    strip_prefix = "windows-sys-0.52.0",
-    urls = ["https://static.crates.io/crates/windows-sys/0.52.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-sys-0.52.0",
-    srcs = [":windows-sys-0.52.0.crate"],
-    crate = "windows_sys",
-    crate_root = "windows-sys-0.52.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "Win32",
-        "Win32_Foundation",
-        "Win32_System",
-        "Win32_System_Diagnostics",
-        "Win32_System_Diagnostics_Debug",
-        "Win32_System_Memory",
-        "Win32_System_SystemInformation",
-        "default",
-    ],
-    visibility = [],
-    deps = [":windows-targets-0.52.6"],
-)
-
-http_archive(
-    name = "windows-sys-0.59.0.crate",
-    sha256 = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b",
-    strip_prefix = "windows-sys-0.59.0",
-    urls = ["https://static.crates.io/crates/windows-sys/0.59.0/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-sys-0.59.0",
-    srcs = [":windows-sys-0.59.0.crate"],
-    crate = "windows_sys",
-    crate_root = "windows-sys-0.59.0.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "Win32",
-        "Win32_Devices",
-        "Win32_Devices_HumanInterfaceDevice",
-        "Win32_Foundation",
-        "Win32_Globalization",
-        "Win32_Graphics",
-        "Win32_Graphics_Dwm",
-        "Win32_Graphics_Gdi",
-        "Win32_Media",
-        "Win32_Security",
-        "Win32_System",
-        "Win32_System_Com",
-        "Win32_System_Com_StructuredStorage",
-        "Win32_System_LibraryLoader",
-        "Win32_System_Ole",
-        "Win32_System_SystemInformation",
-        "Win32_System_SystemServices",
-        "Win32_System_Threading",
-        "Win32_System_WindowsProgramming",
-        "Win32_UI",
-        "Win32_UI_Accessibility",
-        "Win32_UI_Controls",
-        "Win32_UI_HiDpi",
-        "Win32_UI_Input",
-        "Win32_UI_Input_Ime",
-        "Win32_UI_Input_KeyboardAndMouse",
-        "Win32_UI_Input_Pointer",
-        "Win32_UI_Input_Touch",
-        "Win32_UI_Shell",
-        "Win32_UI_TextServices",
-        "Win32_UI_WindowsAndMessaging",
-        "default",
-    ],
-    visibility = [],
-    deps = [":windows-targets-0.52.6"],
-)
-
-http_archive(
-    name = "windows-sys-0.61.2.crate",
-    sha256 = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc",
-    strip_prefix = "windows-sys-0.61.2",
-    urls = ["https://static.crates.io/crates/windows-sys/0.61.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-sys-0.61.2",
-    srcs = [":windows-sys-0.61.2.crate"],
-    crate = "windows_sys",
-    crate_root = "windows-sys-0.61.2.crate/src/lib.rs",
-    edition = "2021",
-    features = [
-        "Wdk",
-        "Wdk_Foundation",
-        "Wdk_Storage",
-        "Wdk_Storage_FileSystem",
-        "Wdk_System",
-        "Wdk_System_IO",
-        "Win32",
-        "Win32_Foundation",
-        "Win32_Networking",
-        "Win32_Networking_WinSock",
-        "Win32_Security",
-        "Win32_Security_Cryptography",
-        "Win32_Storage",
-        "Win32_Storage_FileSystem",
-        "Win32_System",
-        "Win32_System_Console",
-        "Win32_System_Diagnostics",
-        "Win32_System_Diagnostics_Debug",
-        "Win32_System_IO",
-        "Win32_System_LibraryLoader",
-        "Win32_System_Memory",
-        "Win32_System_Pipes",
-        "Win32_System_SystemServices",
-        "Win32_System_Threading",
-        "Win32_System_WindowsProgramming",
-        "Win32_UI",
-        "Win32_UI_Input",
-        "Win32_UI_Input_KeyboardAndMouse",
-        "default",
-    ],
-    visibility = [],
-    deps = [":windows-link-0.2.1"],
-)
-
-http_archive(
-    name = "windows-targets-0.52.6.crate",
-    sha256 = "9b724f72796e036ab90c1021d4780d4d3d648aca59e491e6b98e725b84e99973",
-    strip_prefix = "windows-targets-0.52.6",
-    urls = ["https://static.crates.io/crates/windows-targets/0.52.6/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-targets-0.52.6",
-    srcs = [":windows-targets-0.52.6.crate"],
-    crate = "windows_targets",
-    crate_root = "windows-targets-0.52.6.crate/src/lib.rs",
-    edition = "2021",
-    platform = {
-        "windows-gnu": dict(
-            deps = [":windows_x86_64_gnu-0.52.6"],
-        ),
-        "windows-msvc": dict(
-            deps = [":windows_x86_64_msvc-0.52.6"],
-        ),
-    },
-    visibility = [],
-)
-
-http_archive(
-    name = "windows-threading-0.2.1.crate",
-    sha256 = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37",
-    strip_prefix = "windows-threading-0.2.1",
-    urls = ["https://static.crates.io/crates/windows-threading/0.2.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows-threading-0.2.1",
-    srcs = [":windows-threading-0.2.1.crate"],
-    crate = "windows_threading",
-    crate_root = "windows-threading-0.2.1.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [":windows-link-0.2.1"],
-)
-
-http_archive(
-    name = "windows_x86_64_gnu-0.52.6.crate",
-    sha256 = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78",
-    strip_prefix = "windows_x86_64_gnu-0.52.6",
-    urls = ["https://static.crates.io/crates/windows_x86_64_gnu/0.52.6/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows_x86_64_gnu-0.52.6",
-    srcs = [":windows_x86_64_gnu-0.52.6.crate"],
-    crate = "windows_x86_64_gnu",
-    crate_root = "windows_x86_64_gnu-0.52.6.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-)
-
-http_archive(
-    name = "windows_x86_64_msvc-0.52.6.crate",
-    sha256 = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec",
-    strip_prefix = "windows_x86_64_msvc-0.52.6",
-    urls = ["https://static.crates.io/crates/windows_x86_64_msvc/0.52.6/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "windows_x86_64_msvc-0.52.6",
-    srcs = [":windows_x86_64_msvc-0.52.6.crate"],
-    crate = "windows_x86_64_msvc",
-    crate_root = "windows_x86_64_msvc-0.52.6.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
 )
 
 alias(
@@ -11476,33 +9727,8 @@ cargo.rust_library(
         "rwh_06": ":raw-window-handle-0.6.2",
     },
     platform = {
-        "linux-arm64": dict(
-            deps = [
-                ":libc-0.2.183",
-                ":rustix-1.1.4",
-                ":winit-common-0.31.0-beta.2",
-                ":winit-wayland-0.31.0-beta.2",
-            ],
-        ),
-        "linux-x86_64": dict(
-            deps = [
-                ":libc-0.2.183",
-                ":rustix-1.1.4",
-                ":winit-common-0.31.0-beta.2",
-                ":winit-wayland-0.31.0-beta.2",
-            ],
-        ),
         "macos-arm64": dict(
             deps = [":winit-appkit-0.31.0-beta.2"],
-        ),
-        "macos-x86_64": dict(
-            deps = [":winit-appkit-0.31.0-beta.2"],
-        ),
-        "windows-gnu": dict(
-            deps = [":winit-win32-0.31.0-beta.2"],
-        ),
-        "windows-msvc": dict(
-            deps = [":winit-win32-0.31.0-beta.2"],
         ),
     },
     rustc_flags = ["@$(location :winit-0.31.0-beta.2-build-script-run[rustc_flags])"],
@@ -11614,52 +9840,14 @@ cargo.rust_library(
     crate = "winit_common",
     crate_root = "winit-common-0.31.0-beta.2.crate/src/lib.rs",
     edition = "2024",
-    platform = {
-        "linux-arm64": dict(
-            features = [
-                "wayland",
-                "xkb",
-            ],
-            deps = [
-                ":memmap2-0.9.10",
-                ":smol_str-0.3.6",
-                ":xkbcommon-dl-0.4.2",
-            ],
-        ),
-        "linux-x86_64": dict(
-            features = [
-                "wayland",
-                "xkb",
-            ],
-            deps = [
-                ":memmap2-0.9.10",
-                ":smol_str-0.3.6",
-                ":xkbcommon-dl-0.4.2",
-            ],
-        ),
-        "macos-arm64": dict(
-            features = [
-                "core-foundation",
-                "event-handler",
-            ],
-            deps = [
-                ":objc2-0.6.4",
-                ":objc2-core-foundation-0.3.2",
-            ],
-        ),
-        "macos-x86_64": dict(
-            features = [
-                "core-foundation",
-                "event-handler",
-            ],
-            deps = [
-                ":objc2-0.6.4",
-                ":objc2-core-foundation-0.3.2",
-            ],
-        ),
-    },
+    features = [
+        "core-foundation",
+        "event-handler",
+    ],
     visibility = [],
     deps = [
+        ":objc2-0.6.4",
+        ":objc2-core-foundation-0.3.2",
         ":tracing-0.1.44",
         ":winit-core-0.31.0-beta.2",
     ],
@@ -11689,75 +9877,6 @@ cargo.rust_library(
         ":dpi-0.1.2",
         ":keyboard-types-0.8.3",
         ":smol_str-0.3.6",
-    ],
-)
-
-http_archive(
-    name = "winit-wayland-0.31.0-beta.2.crate",
-    sha256 = "8ce5afb2ba07da603f84b722c95f9f9396d2cedae3944fb6c0cda4a6f88de545",
-    strip_prefix = "winit-wayland-0.31.0-beta.2",
-    urls = ["https://static.crates.io/crates/winit-wayland/0.31.0-beta.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "winit-wayland-0.31.0-beta.2",
-    srcs = [":winit-wayland-0.31.0-beta.2.crate"],
-    crate = "winit_wayland",
-    crate_root = "winit-wayland-0.31.0-beta.2.crate/src/lib.rs",
-    edition = "2024",
-    named_deps = {
-        "rwh_06": ":raw-window-handle-0.6.2",
-        "sctk": ":smithay-client-toolkit-0.20.0",
-    },
-    visibility = [],
-    deps = [
-        ":ahash-0.8.12",
-        ":bitflags-2.11.0",
-        ":calloop-0.14.4",
-        ":cursor-icon-1.2.0",
-        ":dpi-0.1.2",
-        ":libc-0.2.183",
-        ":memmap2-0.9.10",
-        ":rustix-1.1.4",
-        ":smol_str-0.3.6",
-        ":tracing-0.1.44",
-        ":wayland-backend-0.3.14",
-        ":wayland-client-0.31.13",
-        ":wayland-protocols-0.32.11",
-        ":wayland-protocols-plasma-0.3.11",
-        ":winit-common-0.31.0-beta.2",
-        ":winit-core-0.31.0-beta.2",
-    ],
-)
-
-http_archive(
-    name = "winit-win32-0.31.0-beta.2.crate",
-    sha256 = "644ea78af0e858aa3b092e5d1c67c41995a98220c81813f1353b28bc8bb91eaa",
-    strip_prefix = "winit-win32-0.31.0-beta.2",
-    urls = ["https://static.crates.io/crates/winit-win32/0.31.0-beta.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "winit-win32-0.31.0-beta.2",
-    srcs = [":winit-win32-0.31.0-beta.2.crate"],
-    crate = "winit_win32",
-    crate_root = "winit-win32-0.31.0-beta.2.crate/src/lib.rs",
-    edition = "2024",
-    named_deps = {
-        "rwh_06": ":raw-window-handle-0.6.2",
-    },
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":cursor-icon-1.2.0",
-        ":dpi-0.1.2",
-        ":smol_str-0.3.6",
-        ":tracing-0.1.44",
-        ":unicode-segmentation-1.13.2",
-        ":windows-sys-0.59.0",
-        ":winit-core-0.31.0-beta.2",
     ],
 )
 
@@ -11821,79 +9940,12 @@ cargo.rust_library(
         "unsupported",
     ],
     platform = {
-        "linux-arm64": dict(
-            deps = [":rustix-1.1.4"],
-        ),
-        "linux-x86_64": dict(
-            deps = [":rustix-1.1.4"],
-        ),
         "macos-arm64": dict(
-            deps = [":rustix-1.1.4"],
-        ),
-        "macos-x86_64": dict(
             deps = [":rustix-1.1.4"],
         ),
     },
     visibility = [],
     deps = ["third-party//:rustix"],
-)
-
-http_archive(
-    name = "xcursor-0.3.10.crate",
-    sha256 = "bec9e4a500ca8864c5b47b8b482a73d62e4237670e5b5f1d6b9e3cae50f28f2b",
-    strip_prefix = "xcursor-0.3.10",
-    urls = ["https://static.crates.io/crates/xcursor/0.3.10/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "xcursor-0.3.10",
-    srcs = [":xcursor-0.3.10.crate"],
-    crate = "xcursor",
-    crate_root = "xcursor-0.3.10.crate/src/lib.rs",
-    edition = "2018",
-    visibility = [],
-)
-
-http_archive(
-    name = "xkbcommon-dl-0.4.2.crate",
-    sha256 = "d039de8032a9a8856a6be89cea3e5d12fdd82306ab7c94d74e6deab2460651c5",
-    strip_prefix = "xkbcommon-dl-0.4.2",
-    urls = ["https://static.crates.io/crates/xkbcommon-dl/0.4.2/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "xkbcommon-dl-0.4.2",
-    srcs = [":xkbcommon-dl-0.4.2.crate"],
-    crate = "xkbcommon_dl",
-    crate_root = "xkbcommon-dl-0.4.2.crate/src/lib.rs",
-    edition = "2021",
-    visibility = [],
-    deps = [
-        ":bitflags-2.11.0",
-        ":dlib-0.5.3",
-        ":log-0.4.29",
-        ":once_cell-1.21.4",
-        ":xkeysym-0.2.1",
-    ],
-)
-
-http_archive(
-    name = "xkeysym-0.2.1.crate",
-    sha256 = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56",
-    strip_prefix = "xkeysym-0.2.1",
-    urls = ["https://static.crates.io/crates/xkeysym/0.2.1/download"],
-    visibility = [],
-)
-
-cargo.rust_library(
-    name = "xkeysym-0.2.1",
-    srcs = [":xkeysym-0.2.1.crate"],
-    crate = "xkeysym",
-    crate_root = "xkeysym-0.2.1.crate/src/lib.rs",
-    edition = "2018",
-    visibility = [],
 )
 
 http_archive(
@@ -12163,36 +10215,36 @@ cargo.rust_library(
 
 alias(
     name = "zip",
-    actual = ":zip-7.3.0-pre1",
+    actual = ":zip-8.4.0",
     visibility = ["PUBLIC"],
 )
 
 http_archive(
-    name = "zip-7.3.0-pre1.crate",
-    sha256 = "75f6b8c6560e43b8498c0943551fb5e3fbdbe3d27ad0777b0ba262391b2f043d",
-    strip_prefix = "zip-7.3.0-pre1",
-    urls = ["https://static.crates.io/crates/zip/7.3.0-pre1/download"],
+    name = "zip-8.4.0.crate",
+    sha256 = "7756d0206d058333667493c4014f545f4b9603c4330ccd6d9b3f86dcab59f7d9",
+    strip_prefix = "zip-8.4.0",
+    urls = ["https://static.crates.io/crates/zip/8.4.0/download"],
     visibility = [],
 )
 
 cargo.rust_library(
-    name = "zip-7.3.0-pre1",
-    srcs = [":zip-7.3.0-pre1.crate"],
+    name = "zip-8.4.0",
+    srcs = [":zip-8.4.0.crate"],
     crate = "zip",
-    crate_root = "zip-7.3.0-pre1.crate/src/lib.rs",
-    edition = "2021",
+    crate_root = "zip-8.4.0.crate/src/lib.rs",
+    edition = "2024",
     env = {
         "CARGO_CRATE_NAME": "zip",
-        "CARGO_MANIFEST_DIR": "zip-7.3.0-pre1.crate",
+        "CARGO_MANIFEST_DIR": "zip-8.4.0.crate",
         "CARGO_PKG_AUTHORS": "Mathijs van de Nes <git@mathijs.vd-nes.nl>:Marli Frost <marli@frost.red>:Ryan Levick <ryan.levick@gmail.com>:Chris Hennick <hennickc@amazon.com>",
-        "CARGO_PKG_DESCRIPTION": "Library to support the reading and writing of zip files.\n",
+        "CARGO_PKG_DESCRIPTION": "Library to support the reading and writing of zip files.",
         "CARGO_PKG_NAME": "zip",
-        "CARGO_PKG_REPOSITORY": "https://github.com/zip-rs/zip2.git",
-        "CARGO_PKG_VERSION": "7.3.0-pre1",
-        "CARGO_PKG_VERSION_MAJOR": "7",
-        "CARGO_PKG_VERSION_MINOR": "3",
+        "CARGO_PKG_REPOSITORY": "https://github.com/zip-rs/zip2",
+        "CARGO_PKG_VERSION": "8.4.0",
+        "CARGO_PKG_VERSION_MAJOR": "8",
+        "CARGO_PKG_VERSION_MINOR": "4",
         "CARGO_PKG_VERSION_PATCH": "0",
-        "CARGO_PKG_VERSION_PRE": "pre1",
+        "CARGO_PKG_VERSION_PRE": "",
     },
     features = [
         "_deflate-any",

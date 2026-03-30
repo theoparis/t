@@ -1,0 +1,26 @@
+rust_library(
+    name = "apple-dmg",
+    srcs = [
+        "blkx.rs",
+        "koly.rs",
+        "lib.rs",
+        "mbr.rs",
+        "xml.rs",
+    ],
+    deps = [
+        "//zed-os/lib/hfsplus:hfsplus",
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:binrw",
+        "third-party//rust:crc32fast",
+        "third-party//rust:fatfs",
+        "third-party//rust:fscommon",
+        "third-party//rust:getrandom",
+        "third-party//rust:md5",
+        "third-party//rust:serde",
+        "third-party//rust:serde_bytes",
+        "third-party//rust:zlib-rs",
+        "third-party//rust:plist",
+    ],
+    visibility = ["PUBLIC"],
+)

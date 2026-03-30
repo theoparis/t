@@ -21,11 +21,11 @@ common_rustc_flags = [
 ]
 
 rustc_target_triple = select({
-    'toolchains//cfg/target:target[x86_64-unknown-uefi]': 'x86_64-unknown-uefi',
-    'toolchains//cfg/target:target[x86_64-unknown-linux-gnu]': 'x86_64-unknown-linux-gnu',
-    'toolchains//cfg/target:target[aarch64-unknown-uefi]': 'aarch64-unknown-uefi',
-    'toolchains//cfg/target:target[aarch64-unknown-linux-gnu]': 'aarch64-unknown-linux-gnu',
-    'toolchains//cfg/target:target[aarch64-apple-darwin]': 'aarch64-apple-darwin',
+    'prelude//os:none': select({
+        'prelude//cpu:arm64': 'aarch64-unknown-none',
+        'DEFAULT': None,
+    }),
+    'DEFAULT': None,
 })
 
 rustc_flags = select({
@@ -38,8 +38,7 @@ rustc_flags = select({
         '-Cdebug-assertions=false',
         '-Coverflow-checks=false',
     ] + select({
-        'toolchains//cfg/target:target[x86_64-unknown-uefi]': [ '-Copt-level=z' ],
-        'toolchains//cfg/target:target[aarch64-unknown-uefi]': [ '-Copt-level=z' ],
+        'prelude//os:none': [ '-Copt-level=z' ],
         'DEFAULT': [ '-Copt-level=3' ],
     }),
 })

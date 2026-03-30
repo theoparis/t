@@ -7,8 +7,10 @@ generate_platforms(default_platforms)
         name = f'{arch}-{name}',
         deps = [ ':default' ],
         constraint_values = [
-            f'toolchains//cfg/target:target[{arch}-unknown-{name}]',
+            f'prelude//cpu/constraints:{arch}',
+            f'prelude//os/constraints:{name}',
         ],
-    ) for name in [ 'linux-gnu', 'uefi' ]
-      for arch in [ 'aarch64', 'x86_64' ]
+    ) for name in [ 'linux-gnu', 'uefi', 'none' ]
+      for arch in [ 'arm64', 'x86_64' ]
+      if not (arch == 'x86_64' and name == 'none')
 ]

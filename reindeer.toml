@@ -1,1 +1,9 @@
 third_party_dir = "buck/third-party/rust"
+
+[platform.arm64-none]
+target = "aarch64-unknown-none"
+execution-platform = false
+
+[platform.macos-arm64]
+target = "aarch64-apple-darwin"
+execution-platform = true

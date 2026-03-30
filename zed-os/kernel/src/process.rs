@@ -10,12 +10,14 @@ pub struct TrapFrame {
     pub elr: u64,
     pub spsr: u64,
     pub sp_el0: u64,
+    pub q: [u128; 32],
 }
 
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct CpuContext {
     pub regs: [u64; 13], // x19..x28, x29, sp, x30
+    pub q: [u128; 8],    // q8..q15 are callee-saved in standard AAPCS64
 }
 
 static mut EXCEPTION_COUNT: u32 = 0;

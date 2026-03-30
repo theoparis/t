@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{Rng, SeedableRng};
 use spin::Mutex;
 
 static VFS: Mutex<Option<Vfs>> = Mutex::new(None);
@@ -44,13 +44,13 @@ pub struct FileHandle {
 }
 
 impl Vfs {
-    pub fn new(fs: Box<dyn FileSystem>) -> Self {
-        Self { fs: Arc::from(fs) }
+    pub fn new(fs: Arc<dyn FileSystem>) -> Self {
+        Self { fs }
     }
 }
 
 /// Initialize the VFS with a filesystem
-pub fn init(fs: Box<dyn FileSystem>) {
+pub fn init(fs: Arc<dyn FileSystem>) {
     let mut vfs = VFS.lock();
     *vfs = Some(Vfs::new(fs));
 }

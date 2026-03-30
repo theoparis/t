@@ -2074,9 +2074,9 @@ dependencies = [
 
 [[package]]
 name = "lzma-rust2"
-version = "0.15.7"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1670343e58806300d87950e3401e820b519b9384281bbabfb15e3636689ffd69"
+checksum = "47bb1e988e6fb779cf720ad431242d3f03167c1b3f2b1aae7f1a94b2495b36ae"
 
 [[package]]
 name = "mach2"
@@ -3146,6 +3146,7 @@ dependencies = [
  "indicatif",
  "libc",
  "linked_list_allocator",
+ "log",
  "lz4_flex",
  "lzma-rust2",
  "md5",
@@ -5336,9 +5337,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.3.0-pre1"
+version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75f6b8c6560e43b8498c0943551fb5e3fbdbe3d27ad0777b0ba262391b2f043d"
+checksum = "7756d0206d058333667493c4014f545f4b9603c4330ccd6d9b3f86dcab59f7d9"
 dependencies = [
  "crc32fast",
  "flate2",

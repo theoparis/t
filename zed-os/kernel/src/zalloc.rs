@@ -1,46 +1,29 @@
 #![allow(dead_code)]
 
 use alloc::vec::Vec;
-use ruzstd::decoding::StreamingDecoder;
-use ruzstd::encoding::{CompressionLevel, compress_to_vec};
-use ruzstd::io::Read;
+use lz4_flex::block::{compress, decompress};
 
 /// A simple compressed memory allocator (zram-like).
-/// It takes input data (e.g. a page), compresses it using Zstd,
+/// It takes input data (e.g. a page), compresses it using LZ4,
 /// and stores it. It returns a handle to the stored data.
 pub struct ZAllocator {
     // In a real zsmalloc, we would have size classes and dedicated pages.
     // Here we wrap the system allocator but provide compression.
-    // We use a simple counter for handles.
-    // For now, let's simpler: just provide compress/decompress helpers
-    // and maybe a simple store if needed.
 }
 
-// Global buffer for compression to avoid constant reallocation?
-// Thread safety issues if we have multiple cores.
-// Let's stick to allocating for now.
-
-/// Compress data using Zstd.
+/// Compress data using LZ4.
 /// Returns a Vec<u8> containing the compressed data.
 pub fn zcompress(data: &[u8]) -> Result<Vec<u8>, &'static str> {
-    // ruzstd::encoding::compress_to_vec returns Vec<u8>
-    // We use CompressionLevel::Default (equivalent to level 3 usually, but ruzstd is different)
-    Ok(compress_to_vec(data, CompressionLevel::Default))
+    Ok(compress(data))
 }
 
-/// Decompress data using Zstd.
-/// We don't know the exact uncompressed size usually, unless stored.
-/// But for pages, we usually know (e.g. 4096 or 16384).
-/// For generic use, we might need a loop or header.
-/// However, zstd frames include content size if not disabled.
-pub fn zdecompress(data: &[u8]) -> Result<Vec<u8>, &'static str> {
-    let mut decoder = StreamingDecoder::new(data).map_err(|_| "Decompression init failed")?;
-    let mut buffer = Vec::new();
-    decoder
-        .read_to_end(&mut buffer)
-        .map_err(|_| "Decompression failed")?;
-    Ok(buffer)
+/// Decompress data using LZ4.
+/// LZ4 decompress needs to know the uncompressed size.
+/// For zram-like usage, it's usually a fixed block size.
+pub fn zdecompress(data: &[u8], uncompressed_size: usize) -> Result<Vec<u8>, &'static str> {
+    decompress(data, uncompressed_size).map_err(|_| "Decompression failed")
 }
+
 /// A "ZRAM" block device simulator.
 /// Stores pages in a compressed format in memory.
 pub struct ZRamDevice {
@@ -75,14 +58,11 @@ impl ZRamDevice {
         }
 
         if let Some(ref compressed) = self.blocks[index] {
-            let mut decoder =
-                StreamingDecoder::new(&compressed[..]).map_err(|_| "Decompression init failed")?;
-            decoder
-                .read_exact(out)
-                .map_err(|_| "Decompression failed")?;
+            let decompressed = zdecompress(compressed, self.block_size)?;
+            out.copy_from_slice(&decompressed);
             Ok(())
         } else {
-            // Block not present, return zeros?
+            // Block not present, return zeros
             out.fill(0);
             Ok(())
         }

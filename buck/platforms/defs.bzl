@@ -193,7 +193,7 @@ def generate_platforms(variants, constraints=[]):
         # and, if it matches the host platform: generate a -local variant and a
         # -cached variant, for locally uncached and cached builds, respectively
         if _host_cpu_configuration() == cpu_configuration and _host_os_configuration() == os_configuration:
-            default_alias_prefix = "root//buck/platforms:{}-{}".format(cpu, os)
+            default_alias_prefix = "platforms//:{}-{}".format(cpu, os)
             __execution_platform(
                 name = "{}-{}-local".format(cpu, os),
                 cpu_configuration = cpu_configuration,
@@ -224,17 +224,17 @@ def generate_platforms(variants, constraints=[]):
 
     if re_choice == "full-remote":
         suffix = 'remote' if host_info().os.is_linux and not host_info().arch.is_aarch64 else 'cached'
-        alias(
+        native.alias(
             name = 'default',
             actual = f'{default_alias_prefix}-{suffix}',
         )
     elif re_choice == "cache-only":
-        alias(
+        native.alias(
             name = 'default',
             actual = f'{default_alias_prefix}-cached',
         )
     elif re_choice == "none":
-        alias(
+        native.alias(
             name = 'default',
             actual = f'{default_alias_prefix}-local',
         )

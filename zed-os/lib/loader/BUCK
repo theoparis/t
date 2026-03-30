@@ -1,0 +1,14 @@
+rust_library(
+    name = "loader",
+    srcs = [
+        "src/elf.rs",
+        "src/lib.rs",
+        "src/macho.rs",
+    ],
+    deps = [
+        "third-party//rust:goblin",
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+    ],
+    visibility = ["PUBLIC"],
+)

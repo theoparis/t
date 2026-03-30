@@ -1,0 +1,17 @@
+rust_library(
+    name = "hfsplus",
+    srcs = [
+        "hfs_strings.rs",
+        "internal.rs",
+        "lib.rs",
+    ],
+    deps = [
+        "third-party//rust:bitflags",
+        "third-party//rust:unicode-normalization",
+        "third-party//rust:hashbrown",
+        "third-party//rust:binrw",
+        "third-party//rust:spin",
+        "third-party//rust:zlib-rs",
+    ],
+    visibility = ["PUBLIC"],
+)

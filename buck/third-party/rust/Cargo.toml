@@ -19,8 +19,6 @@ reqwest = { version = "0.13.2", default-features = false, features = [
     "stream",
     "http2",
 ] }
-rustls-graviola = { git = "https://github.com/ctz/graviola" }
-graviola = { git = "https://github.com/ctz/graviola" }
 goblin = { version = "0.10.5", default-features = false, features = [
     "endian_fd",
     "alloc",

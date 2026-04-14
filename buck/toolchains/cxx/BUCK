@@ -1,23 +1,11 @@
 load(":defs.bzl", "system_cxx_toolchain")
 
-cxx_warn_flags = select({
-    "config//os:macos": [
-        # NOTE (aseipp): some apparently ancient zlib code in the zlib-sys crate
-        # needs this, otherwise builds fail on sufficiently recent macOS systems due
-        # to C2X support officially making this an error by default
-        "-Wno-implicit-function-declaration",
-    ],
-    "DEFAULT": [],
-})
-
 cxx_base_flags = select({
     'config//os:linux': [
         '-std=gnu++26',
-        '-stdlib=libc++'
     ],
     'config//os:macos': [
         '-std=gnu++26',
-        '-stdlib=libc++'
     ],
     'config//os:windows': [
         '/std:c++26',
@@ -84,8 +72,8 @@ link_flags = select({
 system_cxx_toolchain(
     name = "cxx",
     compiler_type = compiler_type,
-    c_flags = cxx_warn_flags + opt_flags,
-    cxx_flags = cxx_base_flags + cxx_warn_flags + opt_flags,
+    c_flags = opt_flags,
+    cxx_flags = cxx_base_flags + opt_flags,
     linker = linker,
     link_flags = link_flags,
 )

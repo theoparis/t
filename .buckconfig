@@ -22,6 +22,7 @@
   target_platform_detector_spec = \
     target:root//zed-os/kernel/...->platforms//:arm64-none \
     target:root//...->prelude//platforms:default \
+    target:third-party//...->prelude//platforms:default \
     target:prelude//...->prelude//platforms:default \
     target:toolchains//...->prelude//platforms:default
 

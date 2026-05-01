@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use vfdecrypt::decrypt;
+use rustls::client::ClientConfig;
+use bssl_rustls_adapters::{CryptoProviderBuilder};
+use rustls::crypto::CryptoProvider;
 
 #[derive(Parser)]
 #[command(long_about = None)]
@@ -63,6 +66,9 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<(), Report> {
+    let provider = CryptoProviderBuilder::full();
+    CryptoProvider::set_provider(provider).unwrap();
+    
     let cli = Cli::parse();
 
     match cli.command {

@@ -1,0 +1,11 @@
+rust_library(
+    name = "vfdecrypt",
+    srcs = ["lib.rs"],
+    deps = [
+        "third-party//rust:derive_more",
+        "third-party//rust:rootcause",
+        "third-party//rust:rayon",
+        "third-party//by-name/bo/boringssl:bssl-crypto",
+    ],
+    visibility = ["PUBLIC"],
+)

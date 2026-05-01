@@ -14,11 +14,17 @@ derive_more = { version = "2.1.1", default-features = false, features = [
     "error",
     "from",
 ] }
-reqwest = { version = "0.13.3", default-features = false, features = [
-    "rustls-no-provider",
-    "stream",
+reqwest = { version = "0.13.3", features = [
+    "cookies",
+    "gzip",
+    "brotli",
+    "deflate",
     "http2",
-] }
+    "charset",
+    "system-proxy",
+    "rustls-no-provider",
+], default-features = false }
+rustls = { version = "0.23.40", default-features = false }
 goblin = { version = "0.10.5", default-features = false, features = [
     "endian_fd",
     "alloc",
@@ -40,17 +46,9 @@ clap = { version = "4.6.1", features = [
     "std",
     "help",
 ], default-features = false }
-aes = "0.9.0"
-hmac = "0.13.0"
-sha1 = "0.11.0"
-pbkdf2 = "0.13.0"
-des = "0.9.0"
-cbc = { version = "0.2.0", features = ["alloc"] }
 hex = "0.4.3"
-cipher = { version = "0.5.1", features = ["block-padding"] }
 log = { version = "0.4.29", default-features = false }
 crc32fast = { version = "1.5.0", default-features = false }
-md5 = { version = "0.8.0", default-features = false }
 indicatif = "0.18.4"
 byteorder = { version = "1.5", default-features = false }
 bitflags = { version = "2.11.1", default-features = false }
@@ -107,3 +105,16 @@ glam = { version = "0.32.1", default-features = false, features = [
     "bytemuck",
     "fast-math",
 ] }
+rig-core = { version = "0.36.0", default-features = false, features = ["rmcp"] }
+twilight-cache-inmemory = "0.17.1"
+twilight-gateway = { version = "0.17.1", default-features = false, features = ["twilight-http",  "rustls-platform-verifier", "zlib"] }
+twilight-http = { version = "0.17.1", features = ["decompression", "simd-json", "rustls-platform-verifier"], default-features = false }
+twilight-model = "0.17.1"
+html5ever = "0.29"
+markup5ever = "0.14"
+selectors = "0.26"
+servo_arc = "0.4"
+cssparser = "0.34"
+webpki-roots = "0.26"
+dotenvy = "0.15.7"
+uuid = { version = "1.23.1", default-features = false, features = ["v4"] }

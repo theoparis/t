@@ -1,0 +1,26 @@
+rust_binary(
+    name = "blinky",
+    srcs = ["main.rs"],
+    deps = [
+        "third-party//rust:rig-core",
+        "third-party//rust:dotenvy",
+        "third-party//rust:rootcause",
+        "third-party//rust:tokio",
+        "third-party//rust:tracing",
+        "third-party//rust:tracing-subscriber",
+        "third-party//rust:twilight-gateway",
+        "third-party//rust:twilight-http",
+        "third-party//rust:twilight-model",
+        "third-party//rust:twilight-cache-inmemory",
+        "third-party//rust:rustls",
+        "third-party//by-name/bo/boringssl:bssl-rustls-adapters",
+    ],
+    linker_flags = select({
+        "prelude//os:macos": [
+            "-framework",
+            "SystemConfiguration",
+            "-lc++",
+        ],
+        "DEFAULT": []
+    }),
+)

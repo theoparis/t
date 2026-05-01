@@ -14,5 +14,7 @@ wheels/
 rust-project.json
 compile_commands.json
 /build_log*.txt
-*.log*
+*.*log*
+*.*env*
 .buckconfig.local
+.DS_Store

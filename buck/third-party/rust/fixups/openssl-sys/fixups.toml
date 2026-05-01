@@ -3,7 +3,7 @@ features = ["unstable_boringssl"]
 extra_deps = [
     "third-party//bssl:crypto",
     "third-party//bssl:ssl",
-    "third-party//bssl/rust:bssl-sys",
+    "third-party//bssl:bssl-sys",
 ]
 omit_deps = ["bssl-sys"]
 buildscript.run = false

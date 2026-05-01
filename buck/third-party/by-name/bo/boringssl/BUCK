@@ -19,11 +19,11 @@ load(
     "ssl_sources",
 )
 
-GIT_COMMIT = "f175cb106c8c3a445968e8ba1dbf768e0f0ff04a"
+GIT_COMMIT = "a1c146745137642dfb53a1ec12ebe79817b31584"
 
 http_archive(
     name="src",
-    sha256="a1be8f474f49478cfab43321afbc9cffb63cd42576b83ef1c4fbd827bbbf715f",
+    sha256="4b5191f245416b7de7d78fad99e2a6304eb29c3d6f22bc0dc913a70317617517",
     urls=[
         "https://github.com/google/boringssl/archive/{}.tar.gz".format(GIT_COMMIT),
     ],
